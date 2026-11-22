@@ -48,7 +48,7 @@ def search_jobs(
             continue
         if location_class and not any(o.location_class in location_class for o in job.offices):
             continue
-        if country and not any(o.country == country for o in job.offices):
+        if country and not any(o.country == country.upper() for o in job.offices):
             continue
         if posted_since_days is not None and (
             job.posted_at is None or job.posted_at < now - timedelta(days=posted_since_days)
@@ -63,8 +63,9 @@ def search_jobs(
 
 
 def _mentions(job: Job, query: str) -> bool:
-    needle = query.lower()
-    return needle in job.title.lower() or needle in job.description.lower()
+    """Every word of the query appears somewhere in the title or description."""
+    haystack = f"{job.title} {job.description}".lower()
+    return all(word in haystack for word in query.lower().split())
 
 
 def _best_first(match: tuple[Job, str | None, int | None]) -> tuple[bool, int, bool, float]:

@@ -185,3 +185,12 @@ async def test_at_most_eight_boards_fetched_at_once(conn: Connection, client: Po
 
     assert report.boards_ok == 20
     assert 1 < peak <= 8  # concurrent (more than one at a time), but bounded
+
+
+async def test_stored_job_without_state_gets_found(conn: Connection, client: PoliteClient) -> None:
+    """A crash between upsert_job and set_state must not leave a job stateless forever."""
+    add_boards(conn, "a")
+    db.upsert_job(conn, job("a", "1"), T1)  # stored, but no application row
+    report = await run(conn, client, {"a": [job("a", "1")]}, T2)
+    assert db.get_state(conn, "greenhouse:a:1") == AppState.found
+    assert report.new_jobs == []  # not new: it was already stored

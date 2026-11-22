@@ -2,6 +2,7 @@ import html
 from datetime import datetime
 from typing import Any
 
+from jobhunt.ats.parsing import parse_each
 from jobhunt.ats.text import html_to_text
 from jobhunt.enums import Ats
 from jobhunt.http import FetchError, PoliteClient
@@ -18,7 +19,7 @@ class GreenhouseAdapter:
 
     async def fetch_jobs(self, client: PoliteClient, board: Board) -> list[Job]:
         data = await client.get_json(f"{_url(board.host, board.slug)}", content="true")
-        return [self._to_job(board, raw) for raw in data["jobs"]]
+        return parse_each(data["jobs"], lambda raw: self._to_job(board, raw))
 
     async def probe(self, client: PoliteClient, slug: str) -> Board | None:
         try:
@@ -45,10 +46,10 @@ class GreenhouseAdapter:
         )
 
     def _offices(self, raw: dict[str, Any]) -> list[Office]:
-        name = raw.get("location", {}).get("name", "")
+        name = (raw.get("location") or {}).get("name") or ""
         candidates = [part.strip() for part in name.split(";")]
 
-        for office in raw.get("offices", []):
+        for office in raw.get("offices") or []:
             candidates.append(office.get("location") or office.get("name"))
 
         places = []

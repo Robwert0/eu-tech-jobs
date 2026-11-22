@@ -1,6 +1,7 @@
 from datetime import datetime
 from typing import Any
 
+from jobhunt.ats.parsing import parse_each
 from jobhunt.enums import Ats
 from jobhunt.http import FetchError, PoliteClient
 from jobhunt.location import classify
@@ -14,7 +15,7 @@ class AshbyAdapter:
 
     async def fetch_jobs(self, client: PoliteClient, board: Board) -> list[Job]:
         data = await client.get_json(f"{API}/{board.slug}", includeCompensation="false")
-        return [self._to_job(board, raw) for raw in data["jobs"]]
+        return parse_each(data["jobs"], lambda raw: self._to_job(board, raw))
 
     async def probe(self, client: PoliteClient, slug: str) -> Board | None:
         try:
@@ -42,7 +43,7 @@ class AshbyAdapter:
 
     def _offices(self, raw: dict[str, Any]) -> list[Office]:
         places = [raw["location"]]
-        for secondary in raw.get("secondaryLocations", []):
+        for secondary in raw.get("secondaryLocations") or []:
             places.append(secondary["location"])
 
         prefixed = []

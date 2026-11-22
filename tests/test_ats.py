@@ -238,3 +238,78 @@ async def test_probe_hit_returns_board() -> None:
     async with fast_client() as c:
         board = await ADAPTERS[Ats.ashby].probe(c, "linear")
     assert board == Board(company="linear", ats=Ats.ashby, slug="linear")
+
+
+# --- Final review: one odd posting must not break its board -------------------------------
+
+
+@respx.mock
+async def test_explicit_nulls_treated_as_empty() -> None:
+    """Vendors send `null` for empty lists/objects; `.get(key, [])` does not cover that."""
+    lever = fixture("lever_jobs.json")
+    lever[0]["categories"]["allLocations"] = None
+    respx.get("https://api.lever.co/v0/postings/palantir").mock(
+        return_value=httpx.Response(200, json=lever)
+    )
+    gh = fixture("greenhouse_jobs.json")
+    gh["jobs"][0]["location"] = None
+    gh["jobs"][0]["offices"] = None
+    respx.get("https://boards-api.greenhouse.io/v1/boards/gitlab/jobs").mock(
+        return_value=httpx.Response(200, json=gh)
+    )
+    async with fast_client() as c:
+        lever_jobs = await ADAPTERS[Ats.lever].fetch_jobs(
+            c, Board(company="Palantir", ats=Ats.lever, slug="palantir")
+        )
+        gh_jobs = await ADAPTERS[Ats.greenhouse].fetch_jobs(
+            c, Board(company="GitLab", ats=Ats.greenhouse, slug="gitlab")
+        )
+    assert [o.raw for o in lever_jobs[0].offices] == ["Remote - North America"]
+    assert len(gh_jobs) == 3 and gh_jobs[0].offices == []
+
+
+@respx.mock
+async def test_ashby_null_secondary_locations() -> None:
+    respx.get("https://api.ashbyhq.com/posting-api/job-board/acme").mock(
+        return_value=httpx.Response(200, json={"jobs": [ashby_job(secondaryLocations=None)]})
+    )
+    async with fast_client() as c:
+        jobs = await ADAPTERS[Ats.ashby].fetch_jobs(
+            c, Board(company="Acme", ats=Ats.ashby, slug="acme")
+        )
+    assert [o.raw for o in jobs[0].offices] == ["Remote - Europe"]
+
+
+@pytest.mark.parametrize(
+    ("ats", "url", "payload", "drop"),
+    [
+        (
+            Ats.greenhouse,
+            "https://boards-api.greenhouse.io/v1/boards/b/jobs",
+            lambda: fixture("greenhouse_jobs.json"),
+            lambda d: d["jobs"][1].pop("title"),
+        ),
+        (
+            Ats.lever,
+            "https://api.lever.co/v0/postings/b",
+            lambda: fixture("lever_jobs.json"),
+            lambda d: d[1].pop("hostedUrl"),
+        ),
+        (
+            Ats.ashby,
+            "https://api.ashbyhq.com/posting-api/job-board/b",
+            lambda: fixture("ashby_jobs.json"),
+            lambda d: d["jobs"][1].pop("jobUrl"),
+        ),
+    ],
+)
+@respx.mock
+async def test_broken_posting_is_skipped_not_the_whole_board(
+    ats: Ats, url: str, payload: Any, drop: Any
+) -> None:
+    data = payload()
+    drop(data)  # second posting loses a required field
+    respx.get(url).mock(return_value=httpx.Response(200, json=data))
+    async with fast_client() as c:
+        jobs = await ADAPTERS[ats].fetch_jobs(c, Board(company="B", ats=ats, slug="b"))
+    assert len(jobs) == 2  # postings 1 and 3 still parsed

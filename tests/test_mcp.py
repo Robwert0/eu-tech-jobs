@@ -186,3 +186,15 @@ def test_cli_crawl_on_empty_database(
 def test_cli_without_command_shows_usage(capsys: pytest.CaptureFixture[str]) -> None:
     assert main([]) == 2
     assert "usage" in capsys.readouterr().err.lower()
+
+
+def test_find_jobs_query_matches_all_words_anywhere(conn: Connection) -> None:
+    """The tool says 'words to find': every word must appear, in title or description."""
+    store(conn, make_job("both", title="Backend Engineer", description="We write Python."))
+    store(conn, make_job("one", title="Backend Engineer", description="We write Go."))
+    assert ids(search_jobs(conn, query="python backend", now=NOW)) == ["greenhouse:acme:both"]
+
+
+def test_find_jobs_country_case_insensitive(conn: Connection) -> None:
+    store(conn, make_job("ro", location="Cluj-Napoca"))
+    assert ids(search_jobs(conn, country="ro", now=NOW)) == ["greenhouse:acme:ro"]

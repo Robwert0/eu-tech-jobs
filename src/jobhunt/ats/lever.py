@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 from typing import Any
 
+from jobhunt.ats.parsing import parse_each
 from jobhunt.enums import Ats
 from jobhunt.http import FetchError, PoliteClient
 from jobhunt.location import classify
@@ -16,7 +17,7 @@ class LeverAdapter:
 
     async def fetch_jobs(self, client: PoliteClient, board: Board) -> list[Job]:
         data = await client.get_json(f"{_url(board.host, board.slug)}", mode="json")
-        return [self._to_job(board, raw) for raw in data]
+        return parse_each(data, lambda raw: self._to_job(board, raw))
 
     async def probe(self, client: PoliteClient, slug: str) -> Board | None:
         try:
@@ -44,8 +45,8 @@ class LeverAdapter:
 
     def _offices(self, raw: dict[str, Any]) -> list[Office]:
         places = []
-        categories = raw.get("categories", {})
-        for place in [categories.get("location"), *categories.get("allLocations", [])]:
+        categories = raw.get("categories") or {}
+        for place in [categories.get("location"), *(categories.get("allLocations") or [])]:
             if place and place not in places:
                 places.append(place)
 

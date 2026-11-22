@@ -31,7 +31,7 @@ SCOPE_WORDS: frozenset[str] = frozenset(
     # Europe
     " europe european emea eu union cet"
     # filler seen in real postings: "Remote (Europe only)", "Remote (CET timezone)"
-    " only or and time zone zones timezone timezones".split()
+    " only or and in across within the friendly time zone zones timezone timezones".split()
 )
 
 ROMANIA = [

@@ -76,3 +76,22 @@ def test_remote_with_unknown_place_is_other(raw: str) -> None:
 )
 def test_only_global_words_is_remote_global(raw: str) -> None:
     assert classify(raw).location_class == L.remote_global
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "Remote in Europe",
+        "Remote-friendly (Europe)",
+        "Remote across Europe",
+        "Remote within the EU",
+        "Remote - Europe (Iaşi welcome)",  # cedilla ş must fold like comma ș
+    ],
+)
+def test_remote_europe_phrasings(raw: str) -> None:
+    assert classify(raw).location_class in (L.remote_europe, L.remote_romania)
+
+
+def test_cedilla_spellings_are_romania() -> None:
+    assert classify("Iaşi, România").location_class == L.romania
+    assert classify("Timişoara").location_class == L.romania
