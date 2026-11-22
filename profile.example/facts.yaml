@@ -1,0 +1,38 @@
+- id: role-acme
+  kind: role
+  text: Backend Engineer at Acme Payments
+  employer: Acme Payments
+  start: 2022-03-01
+  end: null
+  skills: [Python, PostgreSQL, AWS]
+
+- id: bullet-acme-latency
+  kind: bullet
+  text: Cut p95 API latency from 480 ms to 120 ms by moving hot queries to a read replica
+  employer: Acme Payments
+  skills: [PostgreSQL]
+
+- id: metric-acme-prs
+  kind: metric
+  text: Merged 167 pull requests in 2025
+  employer: Acme Payments
+
+- id: skill-python
+  kind: skill
+  text: Python
+  skills: [Python, FastAPI, Pydantic]
+
+- id: project-jobhunt
+  kind: project
+  text: Job-hunt copilot — crawler, SQLite state machine and MCP server
+  skills: [Python, MCP, SQLite]
+
+- id: edu-upb
+  kind: education
+  text: BSc Computer Science, Politehnica University of Bucharest
+  start: 2016-10-01
+  end: 2020-07-01
+
+- id: link-github
+  kind: link
+  text: https://github.com/example

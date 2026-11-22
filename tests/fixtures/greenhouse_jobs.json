@@ -1,0 +1,74 @@
+{
+ "jobs": [
+  {
+   "id": 8704363002,
+   "title": "Backend Engineer (Python),AI Engineering: Agent Foundations",
+   "absolute_url": "https://job-boards.greenhouse.io/gitlab/jobs/8704363002",
+   "location": {
+    "name": "Remote, Canada; Remote, Poland; Remote, United Kingdom"
+   },
+   "offices": [
+    {
+     "id": 4142718002,
+     "name": "Poland",
+     "location": null,
+     "child_ids": [],
+     "parent_id": 4019553002
+    }
+   ],
+   "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;GitLab is the intelligent orchestration platform for DevSecOps. GitLab enables organizations to increase developer productivity, improve operational efficiency, reduce security and compliance risk, and accelerate digital transformation. More than 50 million registered users and more than 50% of the Fortune 100* trust GitLab to ship better, more s",
+   "updated_at": "2026-11-10T10:45:04-05:00",
+   "first_published": "2026-08-19T09:38:27-04:00",
+   "company_name": "GitLab"
+  },
+  {
+   "id": 8638232002,
+   "title": "AI Transformation Owner, CRO",
+   "absolute_url": "https://job-boards.greenhouse.io/gitlab/jobs/8638232002",
+   "location": {
+    "name": "Remote, United States"
+   },
+   "offices": [
+    {
+     "id": 4040904002,
+     "name": "United States of America",
+     "location": null,
+     "child_ids": [
+      4040902002
+     ],
+     "parent_id": 4019551002
+    }
+   ],
+   "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;GitLab is the intelligent orchestration platform for DevSecOps. GitLab enables organizations to increase developer productivity, improve operational efficiency, reduce security and compliance risk, and accelerate digital transformation. More than 50 million registered users and more than 50% of the Fortune 100* trust GitLab to ship better, more s",
+   "updated_at": "2026-11-06T15:25:07-05:00",
+   "first_published": "2026-07-22T13:38:40-04:00",
+   "company_name": "GitLab"
+  },
+  {
+   "id": 8771512002,
+   "title": "Backend Engineer, GitLab Orbit",
+   "absolute_url": "https://job-boards.greenhouse.io/gitlab/jobs/8771512002",
+   "location": {
+    "name": "Remote, Canada; Remote, United States"
+   },
+   "offices": [
+    {
+     "id": 4040904002,
+     "name": "United States of America",
+     "location": null,
+     "child_ids": [
+      4040902002
+     ],
+     "parent_id": 4019551002
+    }
+   ],
+   "content": "&lt;div class=&quot;content-intro&quot;&gt;&lt;p&gt;GitLab is the intelligent orchestration platform for DevSecOps. GitLab enables organizations to increase developer productivity, improve operational efficiency, reduce security and compliance risk, and accelerate digital transformation. More than 50 million registered users and more than 50% of the Fortune 100* trust GitLab to ship better, more s",
+   "updated_at": "2026-11-20T11:49:04-05:00",
+   "first_published": "2026-10-23T18:47:07-04:00",
+   "company_name": "GitLab"
+  }
+ ],
+ "meta": {
+  "total": 3
+ }
+}
