@@ -17,8 +17,9 @@ class LocationClass(StrEnum):
     remote_romania = "remote-romania"
     remote_europe = "remote-europe"
     remote_global = "remote-global"
-    # Remote, but tied to ONE other EU/EEA/CH country (e.g. "Remote - Germany"): Romanians may
-    # work there, but the employer may need local residence or a B2B contract. Never auto-applied.
+    # Remote (or hybrid-remote) in a European country other than Romania, UK included
+    # (e.g. "Remote - Germany"): worth applying, but the employer may want local residence or a
+    # B2B contract. Manual list, not auto-applied (spec amendment 2026-11-22).
     remote_europe_country = "remote-europe-country"
     other = "other"
 

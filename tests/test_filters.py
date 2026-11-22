@@ -80,4 +80,5 @@ def test_romania_office_wins_over_remote_country_language_rule() -> None:
 
 def test_other_only_is_dropped() -> None:
     assert not keep_job(job("New York, NY"))
-    assert not keep_job(job("Remote - London, UK"))
+    assert not keep_job(job("Remote, United States"))
+    assert keep_job(job("Remote - London, UK"))

@@ -19,7 +19,7 @@ def find_jobs(
 
     Jobs come from company job boards (Greenhouse, Lever, Ashby) and are already limited to
     on-site Romania, remote within Romania, remote within Europe, remote worldwide, or remote
-    tied to one other EU/EEA/Swiss country with no language requirement besides English
+    in any other European country incl. the UK, with no language requirement besides English
     ("remote-europe-country": the employer may require living there or a contractor setup,
     so mention that when presenting these). Results are sorted by fit score (best first;
     unscored last), then by newest posting.

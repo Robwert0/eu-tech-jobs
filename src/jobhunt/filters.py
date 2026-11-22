@@ -1,7 +1,7 @@
 """Which crawled jobs are worth storing: location (location.py) plus a language rule.
 
-Rule (Robert, 2026-11-22): a job that is only "remote in one other European country"
-(remote-europe-country) is kept only if it does not ask for a language other than English.
+Rule (Robert, 2026-11-22): a job that is only "remote in a European country" (remote-europe-country,
+UK and hybrid-remote included) is kept only if it does not ask for a language other than English.
 Romanian is not "other" for Robert, so a Romanian requirement never excludes a job.
 Jobs already open to Romania (on-site, remote-Romania, remote-Europe, remote-global) are unaffected.
 """
