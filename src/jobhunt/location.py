@@ -8,7 +8,8 @@ spanish-top-tech-companies `lib/ats/ranking/location.js` (MIT, © 2026 Pablo Uga
 import re
 import unicodedata
 
-from jobhunt.models import KEPT_CLASSES, LocationClass, Office
+from jobhunt.enums import KEPT_CLASSES, LocationClass
+from jobhunt.models import Office
 
 # ISO-2. EU-27; the rest of geographic Europe that "Remote - Europe" usually covers
 # is listed separately because it is not EU.

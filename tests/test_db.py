@@ -4,7 +4,8 @@ from pathlib import Path
 import pytest
 
 from jobhunt import db
-from jobhunt.models import AppState, Ats, Board, Job, LocationClass, Office
+from jobhunt.enums import AppState, Ats, LocationClass
+from jobhunt.models import Board, Job, Office
 
 T1 = datetime(2026, 11, 1, 8, 0, tzinfo=UTC)
 T2 = datetime(2026, 11, 2, 8, 0, tzinfo=UTC)

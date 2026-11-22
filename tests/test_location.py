@@ -1,7 +1,7 @@
 import pytest
 
+from jobhunt.enums import LocationClass as L
 from jobhunt.location import classify, keep
-from jobhunt.models import LocationClass as L
 
 CASES = [
     ("Bucharest, Romania", "RO", L.romania),

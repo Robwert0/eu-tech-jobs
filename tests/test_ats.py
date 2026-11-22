@@ -12,10 +12,11 @@ from typing import Any
 import httpx
 import pytest
 import respx
-from jobhunt.ats.base import ADAPTERS, detect_board
 
+from jobhunt.ats.base import ADAPTERS, detect_board
+from jobhunt.enums import Ats, LocationClass
 from jobhunt.http import PoliteClient
-from jobhunt.models import Ats, Board, LocationClass
+from jobhunt.models import Board
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

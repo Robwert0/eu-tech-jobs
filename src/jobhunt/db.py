@@ -9,7 +9,8 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
-from jobhunt.models import AppState, Board, Company, Job
+from jobhunt.enums import AppState
+from jobhunt.models import Board, Company, Job
 
 SCHEMA_VERSION = 1
 
