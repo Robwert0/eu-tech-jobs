@@ -18,6 +18,6 @@ Personal data (`profile/`, `data/`, `.env`) is gitignored and never committed.
 ## Credits
 
 Crawling and ATS-parsing logic is ported from
-[spanish-top-tech-companies](https://github.com/pablougarte/spanish-top-tech-companies)
+[spanish-top-tech-companies](https://github.com/pugarte7/spanish-top-tech-companies)
 (MIT, © 2026 Pablo Ugarte). Its `data/` directory is under a separate licence and
 is not used here.
