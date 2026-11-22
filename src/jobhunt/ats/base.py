@@ -21,6 +21,7 @@ GREENHOUSE_HOSTS = {
     "boards-api.greenhouse.io",
 }
 
+
 class AtsAdapter(Protocol):
     ats: Ats
 
