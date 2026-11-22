@@ -213,3 +213,17 @@ def test_find_jobs_contractor_filter(conn: Connection) -> None:
     store(conn, make_job("c", description="B2B contract possible."))
     store(conn, make_job("e", description="Full-time employee."))
     assert ids(search_jobs(conn, contractor_ok=True, now=NOW)) == ["greenhouse:acme:c"]
+
+
+async def test_mcp_lists_get_profile_tool() -> None:
+    tools = {t.name: t for t in await mcp.list_tools()}
+    assert "get_profile" in tools
+    assert "only" in (tools["get_profile"].description or "").lower()
+
+
+async def test_mcp_get_profile_reads_jobhunt_profile(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("JOBHUNT_PROFILE", str(Path(__file__).parent.parent / "profile.example"))
+    result = await mcp.call_tool("get_profile", {})
+    assert not result.is_error
+    ids = [f["id"] for f in result.structured_content["facts"]]
+    assert "role-acme" in ids
