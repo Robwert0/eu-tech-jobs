@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from jobhunt.ats.parsing import parse_each
+from jobhunt.ats.text import html_to_text
 from jobhunt.enums import Ats
 from jobhunt.http import FetchError, PoliteClient
 from jobhunt.location import classify
@@ -40,9 +41,20 @@ class LeverAdapter:
             url=raw["hostedUrl"],
             apply_url=raw["hostedUrl"] + "/apply",
             offices=self._offices(raw),
-            description=raw.get("descriptionPlain") or "",
+            description=self._description(raw),
             posted_at=datetime.fromtimestamp(published / 1000, UTC) if published else None,
         )
+
+    def _description(self, raw: dict[str, Any]) -> str:
+        intro = raw.get("descriptionPlain") or " ".join(
+            part for part in (raw.get("openingPlain"), raw.get("descriptionBodyPlain")) if part
+        )
+        parts = [intro]
+        for section in raw.get("lists") or []:
+            parts.append(section.get("text") or "")
+            parts.append(html_to_text(section.get("content") or ""))
+        parts.append(raw.get("additionalPlain") or "")
+        return "\n\n".join(part.strip() for part in parts if part and part.strip())
 
     def _offices(self, raw: dict[str, Any]) -> list[Office]:
         places = []

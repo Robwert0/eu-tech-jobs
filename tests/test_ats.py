@@ -84,6 +84,25 @@ async def test_lever_parses_fixture() -> None:
     assert job.posted_at == datetime.fromtimestamp(1750119374.985, UTC)  # createdAt is ms
     # Not remote: no prefix.
     assert [o.raw for o in jobs[2].offices] == ["London, United Kingdom"]
+    assert job.description == fixture("lever_jobs.json")[0]["descriptionPlain"].strip()
+
+
+@respx.mock
+async def test_lever_description_includes_lists_and_additional() -> None:
+    respx.get("https://api.lever.co/v0/postings/jobgether").mock(
+        return_value=httpx.Response(200, json=fixture("lever_lists_jobs.json"))
+    )
+    board = Board(company="Jobgether", ats=Ats.lever, slug="jobgether")
+    async with fast_client() as c:
+        [job] = await ADAPTERS[Ats.lever].fetch_jobs(c, board)
+
+    assert job.description.startswith("Accountabilities:")
+    assert "As a .NET Tech Lead / Senior .NET Developer, you will oversee" in job.description
+    assert "How Jobgether works:" in job.description
+    assert job.description.index("Accountabilities:") < job.description.index(
+        "How Jobgether works:"
+    )
+    assert "<" not in job.description
 
 
 @respx.mock
