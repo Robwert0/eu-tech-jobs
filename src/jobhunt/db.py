@@ -9,7 +9,7 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
-from jobhunt.enums import AppState
+from jobhunt.enums import AppState, Ats
 from jobhunt.models import Board, Company, Job
 
 SCHEMA_VERSION = 1
@@ -174,3 +174,12 @@ def close_missing(
             "UPDATE jobs SET closed_at = ? WHERE id = ?", [(at.isoformat(), i) for i in missing]
         )
     return len(missing)
+
+
+def list_boards(conn: sqlite3.Connection) -> list[Board]:
+    """Every board to crawl. A read: no transaction (``with conn``) needed."""
+    rows = conn.execute("SELECT company, ats, slug, host FROM boards ORDER BY key")
+    return [
+        Board(company=company, ats=Ats(ats), slug=slug, host=host)
+        for company, ats, slug, host in rows
+    ]
