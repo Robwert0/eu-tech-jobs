@@ -109,6 +109,45 @@ async def test_ashby_parses_fixture() -> None:
     assert jobs[1].offices[0].location_class == LocationClass.other
 
 
+def ashby_job(**overrides: Any) -> dict[str, Any]:
+    """A minimal Ashby posting; override fields per test."""
+    job = fixture("ashby_jobs.json")["jobs"][0]
+    job.update(overrides)
+    return job
+
+
+@respx.mock
+async def test_ashby_location_variants() -> None:
+    respx.get("https://api.ashbyhq.com/posting-api/job-board/acme").mock(
+        return_value=httpx.Response(
+            200,
+            json={
+                "jobs": [
+                    # On-site: place kept as-is, no prefix.
+                    ashby_job(id="a", isRemote=False, location="Bucharest, Romania"),
+                    # Already says remote: no "Remote - Remote".
+                    ashby_job(id="b", isRemote=True, location="Remote"),
+                    # Secondary locations become extra offices, prefixed too.
+                    ashby_job(
+                        id="c",
+                        isRemote=True,
+                        location="Romania",
+                        secondaryLocations=[{"location": "Germany"}],
+                    ),
+                ]
+            },
+        )
+    )
+    board = Board(company="Acme", ats=Ats.ashby, slug="acme")
+    async with fast_client() as c:
+        jobs = await ADAPTERS[Ats.ashby].fetch_jobs(c, board)
+
+    assert [o.raw for o in jobs[0].offices] == ["Bucharest, Romania"]
+    assert jobs[0].offices[0].location_class == LocationClass.romania
+    assert [o.raw for o in jobs[1].offices] == ["Remote"]
+    assert [o.raw for o in jobs[2].offices] == ["Remote - Romania", "Remote - Germany"]
+
+
 @respx.mock
 async def test_lever_eu_host_used() -> None:
     route = respx.get("https://api.eu.lever.co/v0/postings/acme").mock(
