@@ -104,6 +104,9 @@ async def test_ashby_parses_fixture() -> None:
     assert [o.raw for o in job.offices] == ["Remote - Europe"]
     assert job.offices[0].location_class == LocationClass.remote_europe
     assert job.posted_at == datetime.fromisoformat("2021-04-27T20:13:45.158+00:00")
+    # Second job is remote North America: offices must come from each job's own data.
+    assert [o.raw for o in jobs[1].offices] == ["Remote - North America"]
+    assert jobs[1].offices[0].location_class == LocationClass.other
 
 
 @respx.mock
@@ -133,7 +136,10 @@ async def test_lever_eu_host_used() -> None:
             "https://boards-api.greenhouse.io/v1/boards/acme/jobs",
             Board(company="Acme", ats=Ats.greenhouse, slug="acme"),
         ),
-        ("https://jobs.lever.co/acme/abc-123", Board(company="Acme", ats=Ats.lever, slug="acme")),
+        (
+            "https://jobs.lever.co/acme/abc-123",
+            Board(company="Acme", ats=Ats.lever, slug="acme"),
+        ),
         (
             "https://jobs.eu.lever.co/acme",
             Board(company="Acme", ats=Ats.lever, slug="acme", host="api.eu.lever.co"),
@@ -152,6 +158,11 @@ async def test_lever_eu_host_used() -> None:
             "https://job-boards.eu.greenhouse.io/acme",
             Board(company="Acme", ats=Ats.greenhouse, slug="acme"),
         ),
+        (
+            "https://boards.eu.greenhouse.io/acme",
+            Board(company="Acme", ats=Ats.greenhouse, slug="acme"),
+        ),
+        ("https://boards.greenhouse.io/embed/job_board", None),  # embed without ?for=
         # The vendor's own non-board sites (footer "Powered by …", help centre) and
         # lookalikes are NOT boards: detection is an exact-host allowlist, not a word match.
         ("https://www.greenhouse.io/careers", None),
