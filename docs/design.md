@@ -3,8 +3,8 @@
 A crawler finds tech jobs that can be done from Romania and keeps them in a local SQLite database.
 When I sit down to job-hunt, Claude (in Claude Code) connects to that database through an MCP
 server, goes through the new jobs with me, judges each one against my real CV, tailors a CV and
-cover letter for the good ones, and keeps track of what I applied to. I submit every application
-myself.
+cover letter for the good ones, and keeps track of what I applied to. I submit most applications
+myself; for jobs I explicitly approve on standard forms, a bot fills and submits them for me.
 
 ## Goals
 
@@ -17,7 +17,8 @@ myself.
 
 ## Non-goals
 
-- No automatic submitting. No LLM calls from the Python code — Claude in Claude Code is the LLM.
+- No automatic submitting of a job I have not approved. No LLM calls from the Python code —
+  Claude in Claude Code is the LLM.
 - No LinkedIn, no email reading, no salary data stored.
 - No hosted service: the MCP server runs locally over stdio.
 
@@ -38,6 +39,9 @@ myself.
    deterministic grounding checker, Playwright form filling). Parked as too big; everything built
    for approach 1 is reusable if it is ever built.
 3. **Automation platform (n8n etc.)** — rejected: the point is code that can be read and tested.
+4. **Hybrid (chosen, builds on 1).** Copilot for every job, plus an opt-in autopilot lane: jobs I
+   approve in a session are filled and submitted by a Playwright bot on Greenhouse / Lever / Ashby
+   with the documents tailored in that session. I decide; the bot does the typing.
 
 ## Architecture: two halves, one database
 
@@ -114,6 +118,23 @@ penalty; years-of-experience requirements are judged against real dates.
 Before shortlisting, Claude checks the application history for the same company in the last 60
 days and says so.
 
+## Autopilot lane (approved jobs only)
+
+```
+review session ──► "auto-apply this" ──► documents saved ──► queued
+jobhunt apply:  queued ──► policy ──► dry_run (filled + screenshot, not sent)  while submit is off
+                                  ├─► submitted (confirmation + evidence saved)
+                                  ├─► submit_unconfirmed (shown to me, never counted as done)
+                                  └─► manual(reason): CAPTCHA, login wall, unanswered question,
+                                      closed posting, applied there in the last 60 days
+```
+
+- Only Greenhouse, Lever and Ashby forms; everything else stays in the manual lane.
+- Answers are never guessed: standard fields from the answers file, free-text questions only from
+  answers written in the session; a required field without an answer goes back to me.
+- Dry-run by default; at most 10 submits per calendar day; every submit keeps a screenshot, the
+  files sent, the answers given and the confirmation text.
+
 ## Crawling etiquette
 
 One shared HTTP client: at least 1 s between requests to the same host, 3 retries with exponential
@@ -125,5 +146,6 @@ board's failure never stops the others, and a failed board never closes its jobs
 1. ✅ Find: models, location classifier, job-board adapters, discovery, SQLite, `find_jobs`.
 2. Copilot: profile + `get_profile`, `get_job`, `record_decision`, `my_applications` / `new_only`,
    `record_external_job`, the `review_jobs` prompt.
-3. More sources: Workday, SmartRecruiters, Workable, Amazon, Oracle, SuccessFactors.
-4. Daily crawl schedule.
+3. Autopilot lane: saved documents, form readers, filler, policy, `jobhunt apply`.
+4. More sources: Workday, SmartRecruiters, Workable, Amazon, Oracle, SuccessFactors.
+5. Daily crawl + apply schedule.
