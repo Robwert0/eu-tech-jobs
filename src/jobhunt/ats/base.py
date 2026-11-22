@@ -1,11 +1,16 @@
 from urllib.parse import parse_qs, urlsplit
 
 from jobhunt.ats.ashby import AshbyAdapter
+from jobhunt.ats.greenhouse import GreenhouseAdapter
 from jobhunt.ats.lever import LeverAdapter
 from jobhunt.enums import Ats
 from jobhunt.models import Board
 
-ADAPTERS: dict[Ats, object] = {Ats.ashby: AshbyAdapter(), Ats.lever: LeverAdapter()}
+ADAPTERS: dict[Ats, object] = {
+    Ats.ashby: AshbyAdapter(),
+    Ats.lever: LeverAdapter(),
+    Ats.greenhouse: GreenhouseAdapter(),
+}
 GREENHOUSE_HOSTS = {
     "boards.greenhouse.io",
     "job-boards.greenhouse.io",
