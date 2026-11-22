@@ -137,7 +137,7 @@ Every transition is checked against an `ALLOWED` table (illegal moves raise `Inv
 | Lever | `ats/lever.py` | `api.lever.co` / `api.eu.lever.co` | Jobgether, Palantir, Spotify, Kraken, SwissBorg |
 | softgarden | `ats/softgarden.py` | `{site}/jobs.feed.json` | Orange Romania |
 
-Boards are found by **discovery**: scan a company's careers page for board links (and where it redirects), else guess slugs and probe. Companies on systems without an adapter yet are reported as `needs adapter: workday 14 (…)` — that ranking decides what gets built next ([plan](docs/superpowers/plans/2026-11-22-more-job-sources.md): Workday, SmartRecruiters, Workable, Amazon, Oracle, SuccessFactors).
+Boards are found by **discovery**: scan a company's careers page for board links (and where it redirects), else guess slugs and probe. Companies on systems without an adapter yet are reported as `needs adapter: workday 14 (…)` — that ranking decides what gets built next (Workday, SmartRecruiters, Workable, Amazon, Oracle, SuccessFactors — see [design](docs/design.md)).
 
 **Never touched:** LinkedIn, Gmail, and any site that answers automated requests with 401/403 or a bot challenge — those are skipped, not worked around.
 
@@ -225,6 +225,10 @@ docs/learning/                interview-ready notes: MCP · crawling · state ma
 - **Test-first** for every feature; recorded real API responses as fixtures; HTTP mocked with `respx`.
 - **Two live tuning passes** turned real false positives into tests (OpenAI's privacy-policy link was not a "contractor" signal; *"anywhere in the United States"* is not abroad).
 - `ruff`, `ruff format` and `mypy --strict` clean; a pre-commit hook runs ruff on staged files.
+
+## 📐 Design
+
+Goals, trade-offs and decisions: [docs/design.md](docs/design.md). Interview-style notes on each part: [docs/learning/](docs/learning/).
 
 ## 🔒 Privacy
 
