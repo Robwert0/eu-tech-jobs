@@ -1,12 +1,14 @@
+from typing import Protocol
 from urllib.parse import parse_qs, urlsplit
 
 from jobhunt.ats.ashby import AshbyAdapter
 from jobhunt.ats.greenhouse import GreenhouseAdapter
 from jobhunt.ats.lever import LeverAdapter
 from jobhunt.enums import Ats
-from jobhunt.models import Board
+from jobhunt.http import PoliteClient
+from jobhunt.models import Board, Job
 
-ADAPTERS: dict[Ats, object] = {
+ADAPTERS: dict[Ats, AtsAdapter] = {
     Ats.ashby: AshbyAdapter(),
     Ats.lever: LeverAdapter(),
     Ats.greenhouse: GreenhouseAdapter(),
@@ -18,6 +20,13 @@ GREENHOUSE_HOSTS = {
     "job-boards.eu.greenhouse.io",
     "boards-api.greenhouse.io",
 }
+
+class AtsAdapter(Protocol):
+    ats: Ats
+
+    async def fetch_jobs(self, client: PoliteClient, board: Board) -> list[Job]: ...
+
+    async def probe(self, client: PoliteClient, slug: str) -> Board | None: ...
 
 
 def detect_board(url: str, company: str) -> Board | None:
