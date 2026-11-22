@@ -5,6 +5,7 @@ applications (our decisions about a job), so re-crawling never touches state.
 Every state change is appended to ``events`` as an audit log.
 """
 
+import os
 import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
@@ -183,3 +184,7 @@ def list_boards(conn: sqlite3.Connection) -> list[Board]:
         Board(company=company, ats=Ats(ats), slug=slug, host=host)
         for company, ats, slug, host in rows
     ]
+
+
+def db_path() -> Path:
+    return Path(os.environ.get("JOBHUNT_DB", "data/jobhunt.db"))
