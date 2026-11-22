@@ -136,7 +136,9 @@ async def test_nothing_found_returns_none() -> None:
 async def test_probe_server_error_propagates() -> None:
     """A 503 is not 'no board': the caller must see it and retry another day."""
     respx.get(url__startswith=GH).mock(return_value=httpx.Response(503))
-    all_probes_404()
+    # Not all_probes_404(): respx would REPLACE the identical GH pattern above with a 404.
+    for api in (LEVER, ASHBY):
+        respx.get(url__startswith=api).mock(return_value=httpx.Response(404))
     async with PoliteClient(min_interval=0, sleep=_no_sleep) as c:
         with pytest.raises(FetchError) as e:
             await discover_board(c, Company(name="Acme", source="manual"))
