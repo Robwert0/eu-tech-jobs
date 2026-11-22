@@ -45,7 +45,7 @@ async def _discover(path: Path) -> int:
             db.upsert_company(conn, company)
             try:
                 board = await discover_board(client, company)
-            except FetchError as e:  # one company's outage must not stop the rest
+            except FetchError as e:
                 print(f"  {company.name}: error, try again later ({e})")
                 continue
             if board is None:

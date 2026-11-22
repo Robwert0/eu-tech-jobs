@@ -13,7 +13,7 @@ def load_companies(path: Path) -> list[Company]:
             raise ValueError(f"Duplicate company in {path}: {entry['name']}")
         seen.add(entry["name"])
         fields = {**entry, "source": "manual"}
-        if "board" in entry:  # explicit board: {"ats": ..., "slug": ..., "host"?: ...}
+        if "board" in entry:
             fields["board"] = Board(company=entry["name"], **entry["board"])
         companies.append(Company(**fields))
 

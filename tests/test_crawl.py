@@ -1,9 +1,3 @@
-"""Specs for the crawl stage (src/jobhunt/crawl.py).
-
-No HTTP here: fake adapters return prepared jobs or raise, so each test controls
-exactly what every board "returns".
-"""
-
 import asyncio
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -42,8 +36,6 @@ def job(slug: str, external_id: str, location: str = "Bucharest, Romania") -> Jo
 
 
 class FakeAdapter:
-    """Returns `results[slug]`; if that is an exception, raises it instead."""
-
     ats = Ats.greenhouse
 
     def __init__(self, results: dict[str, list[Job] | Exception]) -> None:
@@ -66,7 +58,7 @@ def conn(tmp_path: Path) -> Connection:
 
 @pytest.fixture
 async def client() -> AsyncIterator[PoliteClient]:
-    async with PoliteClient(min_interval=0) as c:  # never used by fakes
+    async with PoliteClient(min_interval=0) as c:
         yield c
 
 
@@ -98,13 +90,12 @@ async def test_location_dropped_jobs_not_stored(conn: Connection, client: Polite
     report = await run(conn, client, {"a": jobs}, T1)
 
     assert report.new_jobs == ["greenhouse:a:1"]
-    assert report.seen == 1  # only kept jobs count as seen
+    assert report.seen == 1
     stored = [r[0] for r in conn.execute("SELECT id FROM jobs")]
     assert stored == ["greenhouse:a:1"]
 
 
 async def test_second_run_reports_no_new_jobs(conn: Connection, client: PoliteClient) -> None:
-    """Review Focus 2: same posting on two runs -> one row, state untouched, last_seen updated."""
     add_boards(conn, "a")
     await run(conn, client, {"a": [job("a", "1")]}, T1)
     db.set_state(conn, "greenhouse:a:1", AppState.queued)
@@ -119,7 +110,6 @@ async def test_second_run_reports_no_new_jobs(conn: Connection, client: PoliteCl
 
 
 async def test_failing_board_does_not_stop_crawl(conn: Connection, client: PoliteClient) -> None:
-    """Review Focus 3: one board's 429 is recorded; the other boards still crawl."""
     add_boards(conn, "a", "b")
     results: dict[str, list[Job] | Exception] = {
         "a": FetchError("https://x/a", 429, "Too Many Requests"),
@@ -136,7 +126,6 @@ async def test_failing_board_does_not_stop_crawl(conn: Connection, client: Polit
 async def test_unexpected_error_in_one_board_is_recorded(
     conn: Connection, client: PoliteClient
 ) -> None:
-    """A parsing bug (e.g. KeyError on an odd response) must not abort the whole crawl either."""
     add_boards(conn, "a", "b")
     results: dict[str, list[Job] | Exception] = {"a": KeyError("title"), "b": [job("b", "1")]}
     report = await run(conn, client, results, T1)
@@ -148,13 +137,12 @@ async def test_unexpected_error_in_one_board_is_recorded(
 async def test_missing_jobs_closed_only_for_successful_boards(
     conn: Connection, client: PoliteClient
 ) -> None:
-    """Review Focus 4: a posting gone from its board is closed; a failed board closes nothing."""
     add_boards(conn, "a", "b")
     await run(conn, client, {"a": [job("a", "1"), job("a", "2")], "b": [job("b", "1")]}, T1)
 
     results: dict[str, list[Job] | Exception] = {
-        "a": [job("a", "1")],  # a:2 disappeared
-        "b": FetchError("https://x/b", 503, "Service Unavailable"),  # b failed: keep b:1 open
+        "a": [job("a", "1")],
+        "b": FetchError("https://x/b", 503, "Service Unavailable"),
     }
     report = await run(conn, client, results, T2)
 
@@ -184,16 +172,15 @@ async def test_at_most_eight_boards_fetched_at_once(conn: Connection, client: Po
     report = await crawl(conn, client, now=T1, adapters={Ats.greenhouse: SlowAdapter({})})
 
     assert report.boards_ok == 20
-    assert 1 < peak <= 8  # concurrent (more than one at a time), but bounded
+    assert 1 < peak <= 8
 
 
 async def test_stored_job_without_state_gets_found(conn: Connection, client: PoliteClient) -> None:
-    """A crash between upsert_job and set_state must not leave a job stateless forever."""
     add_boards(conn, "a")
-    db.upsert_job(conn, job("a", "1"), T1)  # stored, but no application row
+    db.upsert_job(conn, job("a", "1"), T1)
     report = await run(conn, client, {"a": [job("a", "1")]}, T2)
     assert db.get_state(conn, "greenhouse:a:1") == AppState.found
-    assert report.new_jobs == []  # not new: it was already stored
+    assert report.new_jobs == []
 
 
 async def test_remote_country_jobs_kept_unless_other_language(

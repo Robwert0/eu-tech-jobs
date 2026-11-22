@@ -1,9 +1,3 @@
-"""Specs for board discovery (src/jobhunt/seed/discover.py) and the companies.json loader.
-
-Discovery turns a Company into its job Board: first by scanning the company's careers page
-for a known board link (detect_board), else by guessing slugs and probing each adapter.
-"""
-
 import json
 from pathlib import Path
 
@@ -27,12 +21,8 @@ def fast_client() -> PoliteClient:
 
 
 def all_probes_404() -> None:
-    """Default: every slug probe on every ATS says 'no such board'."""
     for api in (GH, LEVER, ASHBY):
         respx.get(url__startswith=api).mock(return_value=httpx.Response(404))
-
-
-# --- slug guessing ------------------------------------------------------------------------
 
 
 @pytest.mark.parametrize(
@@ -42,14 +32,11 @@ def all_probes_404() -> None:
         ("Acme Corp", ["acmecorp", "acme-corp"]),
         ("Booking.com", ["bookingcom", "booking-com"]),
         ("  UiPath ", ["uipath"]),
-        ("Ştiinţă & Co", ["stiintaco", "stiinta-co"]),  # accents folded, symbols dropped
+        ("Ştiinţă & Co", ["stiintaco", "stiinta-co"]),
     ],
 )
 def test_slug_candidates(name: str, expected: list[str]) -> None:
     assert slug_candidates(name) == expected
-
-
-# --- careers page scan --------------------------------------------------------------------
 
 
 @respx.mock
@@ -66,7 +53,6 @@ async def test_discover_finds_board_from_careers_html() -> None:
     company = Company(name="Acme", careers_url="https://acme.example/careers", source="manual")
     async with fast_client() as c:
         board = await discover_board(c, company)
-    # Found on the page: no probing needed (respx would reject any unmocked probe request).
     assert board == Board(company="Acme", ats=Ats.greenhouse, slug="acme")
 
 
@@ -86,17 +72,13 @@ async def test_discover_skips_vendor_footer_links() -> None:
     assert board == Board(company="Acme", ats=Ats.lever, slug="acme-labs")
 
 
-# --- slug probing -------------------------------------------------------------------------
-
-
 @respx.mock
 async def test_discover_falls_back_to_slug_probe() -> None:
     respx.get(f"{LEVER}/acme-corp").mock(return_value=httpx.Response(200, json=[]))
     all_probes_404()
-    company = Company(name="Acme Corp", source="manual")  # no careers_url
+    company = Company(name="Acme Corp", source="manual")
     async with fast_client() as c:
         board = await discover_board(c, company)
-    # The Board carries the real company name, not the slug the probe guessed.
     assert board == Board(company="Acme Corp", ats=Ats.lever, slug="acme-corp")
 
 
@@ -115,7 +97,6 @@ async def test_careers_page_without_board_falls_back_to_probe() -> None:
 
 @respx.mock
 async def test_unreachable_careers_page_falls_back_to_probe() -> None:
-    """Careers sites often block bots (403); that must not stop discovery."""
     respx.get("https://acme.example/careers").mock(return_value=httpx.Response(403))
     respx.get(f"{GH}/acme/jobs").mock(return_value=httpx.Response(200, json={"jobs": []}))
     all_probes_404()
@@ -134,9 +115,7 @@ async def test_nothing_found_returns_none() -> None:
 
 @respx.mock
 async def test_probe_server_error_propagates() -> None:
-    """A 503 is not 'no board': the caller must see it and retry another day."""
     respx.get(url__startswith=GH).mock(return_value=httpx.Response(503))
-    # Not all_probes_404(): respx would REPLACE the identical GH pattern above with a 404.
     for api in (LEVER, ASHBY):
         respx.get(url__startswith=api).mock(return_value=httpx.Response(404))
     async with PoliteClient(min_interval=0, sleep=_no_sleep) as c:
@@ -145,11 +124,7 @@ async def test_probe_server_error_propagates() -> None:
     assert e.value.status == 503
 
 
-async def _no_sleep(_: float) -> None:
-    """Skip the retry backoff so the 503 test runs instantly."""
-
-
-# --- companies.json -----------------------------------------------------------------------
+async def _no_sleep(_: float) -> None: ...
 
 
 def test_load_companies(tmp_path: Path) -> None:
@@ -177,20 +152,16 @@ def test_load_companies_rejects_duplicates(tmp_path: Path) -> None:
         load_companies(path)
 
 
-# --- explicit boards and non-guessable systems ---------------------------------------------
-
-
 async def test_explicit_board_is_used_without_any_request() -> None:
     board = Board(company="Orange Romania", ats=Ats.softgarden, slug="cariere.orange.ro")
     company = Company(name="Orange Romania", source="manual", board=board)
-    async with fast_client() as c:  # no respx mock: any request would fail the test
+    async with fast_client() as c:
         assert await discover_board(c, company) == board
 
 
 @respx.mock
 async def test_slug_guessing_skips_systems_whose_slugs_are_hosts() -> None:
-    """softgarden's 'slug' is a website host: guessing would request made-up domains."""
-    all_probes_404()  # only Greenhouse/Lever/Ashby are mocked; a softgarden probe would raise
+    all_probes_404()
     async with fast_client() as c:
         assert await discover_board(c, Company(name="Acme", source="manual")) is None
 

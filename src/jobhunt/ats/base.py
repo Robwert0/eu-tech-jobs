@@ -26,8 +26,6 @@ GREENHOUSE_HOSTS = {
 
 class AtsAdapter(Protocol):
     ats: Ats
-    # True when a board slug can be guessed from a company name (Greenhouse, Lever, Ashby).
-    # False when the "slug" is a host or tenant id: probing guesses would hit made-up domains.
     slug_guessable: bool
 
     async def fetch_jobs(self, client: PoliteClient, board: Board) -> list[Job]: ...

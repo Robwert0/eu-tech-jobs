@@ -1,10 +1,3 @@
-"""SQLite storage: the single source of truth for every pipeline stage.
-
-Jobs (facts about the world, refreshed by each crawl) are kept apart from
-applications (our decisions about a job), so re-crawling never touches state.
-Every state change is appended to ``events`` as an audit log.
-"""
-
 import os
 import sqlite3
 from datetime import UTC, datetime
@@ -55,8 +48,6 @@ CREATE TABLE events (
 """
 
 S = AppState
-# None = no application row yet. Terminal states (skipped, submitted,
-# applied_manually, dismissed) have no outgoing transitions.
 ALLOWED: dict[AppState | None, frozenset[AppState]] = {
     None: frozenset({S.found}),
     S.found: frozenset(
@@ -76,7 +67,6 @@ class InvalidTransition(Exception):
 
 
 def connect(path: Path) -> sqlite3.Connection:
-    """Open (creating if needed) the database and bring its schema up to date."""
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path)
     conn.execute("PRAGMA journal_mode=WAL")
@@ -110,10 +100,6 @@ def upsert_board(conn: sqlite3.Connection, board: Board) -> None:
 
 
 def upsert_job(conn: sqlite3.Connection, job: Job, seen_at: datetime) -> bool:
-    """Insert or refresh a job. Returns True if it was not stored before.
-
-    Never touches ``applications``; a job seen again is re-opened if it had closed.
-    """
     with conn:
         existed = conn.execute("SELECT 1 FROM jobs WHERE id = ?", (job.id,)).fetchone()
         conn.execute(
@@ -140,7 +126,6 @@ def get_state(conn: sqlite3.Connection, job_id: str) -> AppState | None:
 def set_state(
     conn: sqlite3.Connection, job_id: str, state: AppState, reason: str | None = None
 ) -> None:
-    """Move a job's application to ``state``, recording an event. Raises InvalidTransition."""
     current = get_state(conn, job_id)
     if state not in ALLOWED.get(current, frozenset()):
         raise InvalidTransition(job_id, current, state)
@@ -162,7 +147,6 @@ def set_state(
 def close_missing(
     conn: sqlite3.Connection, board_key: str, seen_ids: set[str], at: datetime
 ) -> int:
-    """Mark open jobs of ``board_key`` that were not in this crawl as closed."""
     open_ids = [
         r[0]
         for r in conn.execute(
@@ -178,7 +162,6 @@ def close_missing(
 
 
 def list_boards(conn: sqlite3.Connection) -> list[Board]:
-    """Every board to crawl. A read: no transaction (``with conn``) needed."""
     rows = conn.execute("SELECT company, ats, slug, host FROM boards ORDER BY key")
     return [
         Board(company=company, ats=Ats(ats), slug=slug, host=host)

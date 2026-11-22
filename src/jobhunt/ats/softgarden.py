@@ -1,11 +1,3 @@
-"""softgarden career sites (e.g. Orange Romania, cariere.orange.ro).
-
-softgarden publishes every job as a schema.org `JobPosting` in a public DataFeed at
-`https://{career-site host}/jobs.feed.json` — meant for search engines and job sites to read.
-The board slug is the career-site host. The feed has no description; applications go through the
-posting's own URL (for Orange: erecruiter.pl).
-"""
-
 from datetime import datetime
 from typing import Any
 
@@ -15,7 +7,6 @@ from jobhunt.http import FetchError, PoliteClient
 from jobhunt.location import classify
 from jobhunt.models import Board, Job, Office
 
-# Feeds are localised by whoever runs them: Orange's comes from Poland ("Rumunia").
 _COUNTRY_NAMES = {
     "rumunia": "Romania",
     "romania": "Romania",

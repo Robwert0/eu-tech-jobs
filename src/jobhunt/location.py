@@ -1,41 +1,22 @@
-"""Free-text job location -> Office(country, location_class).
-
-Three independent signals are detected on a normalized string — remote?, which
-region?, which country? — and then combined. Country tables are ported from
-spanish-top-tech-companies `lib/ats/ranking/location.js` (MIT, © 2026 Pablo Ugarte).
-"""
-
 import re
 import unicodedata
 
 from jobhunt.enums import KEPT_CLASSES, LocationClass
 from jobhunt.models import Office
 
-# ISO-2. EU-27; the rest of geographic Europe that "Remote - Europe" usually covers
-# is listed separately because it is not EU.
 EU_COUNTRIES: frozenset[str] = frozenset(
     "AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI ES SE".split()
 )
 EUROPE_NON_EU: frozenset[str] = frozenset("GB CH NO IS LI".split())
-# Countries where a Romanian needs a visa / work permit to be employed (Robert, 2026-11-22).
 NEEDS_VISA: frozenset[str] = frozenset({"US", "GB"})
-# Every European country we can detect. A remote posting in any of them is worth applying to
-# (Robert, 2026-11-22), including the UK and non-EU Europe: kept as remote-europe-country.
 EUROPE: frozenset[str] = EU_COUNTRIES | EUROPE_NON_EU | frozenset("RS UA MD AL BA ME MK XK".split())
 
 REMOTE = ["remote", "anywhere", "worldwide", "distributed", "work from home", "wfh", "virtual"]
 EUROPE_REGION = ["europe", "european", "emea", "eu", "cet", "european union"]
 
-# A remote location is only remote-europe / remote-global when every word in it is one of
-# these (an allowlist). Any other word names a place we may not know — "Remote - Seoul",
-# "Remote, AMER", "Remote-Jakarta" — so it fails closed to `other`. Listing every non-European
-# place instead would be a blocklist that is never complete.
 SCOPE_WORDS: frozenset[str] = frozenset(
-    # remote / global
     "remote anywhere worldwide global distributed virtual wfh work from home based fully first"
-    # Europe
     " europe european emea eu union cet"
-    # filler seen in real postings: "Remote (Europe only)", "Remote (CET timezone)"
     " only or and in across within the friendly time zone zones timezone timezones".split()
 )
 
@@ -54,8 +35,6 @@ ROMANIA = [
     "oradea",
     "galati",
     "ploiesti",
-    # Remaining county seats and large towns (found missing in the Orange feed, 2026-11-22).
-    # Left out on purpose: "Alexandria" (also Egypt / Virginia).
     "alba iulia",
     "arad",
     "pitesti",
@@ -90,7 +69,6 @@ ROMANIA = [
     "voluntari",
 ]
 
-# (needle, ISO-2). Needles are matched as whole words on the normalized text.
 PLACES: list[tuple[str, str]] = [
     ("uk", "GB"),
     ("united kingdom", "GB"),
@@ -164,7 +142,6 @@ PLACES: list[tuple[str, str]] = [
     ("riga", "LV"),
     ("madrid", "ES"),
     ("barcelona", "ES"),
-    # Outside Europe.
     ("canada", "CA"),
     ("toronto", "CA"),
     ("vancouver", "CA"),
@@ -247,7 +224,6 @@ US_STATE_NAMES = [
     "wyoming",
     "district of columbia",
 ]
-# Codes that collide with words or other countries' codes (DE, IN, OR, ME, HI, OK) are left out.
 US_STATE_CODES = (
     "al ak az ar ca co ct dc fl ga ia id il ks ky la ma md mi mn mo ms mt nc nd ne nh nj nm "
     "nv ny oh pa ri sc sd tn tx ut va vt wa wi wv wy"
@@ -275,7 +251,6 @@ _ISO_AFTER_COMMA = re.compile(r",\s*([a-z]{2})\s*$")
 
 
 def _normalize(raw: str) -> str:
-    """Lowercase and strip accents: 'București' -> 'bucuresti'."""
     decomposed = unicodedata.normalize("NFKD", raw)
     return "".join(c for c in decomposed if unicodedata.category(c) != "Mn").lower().strip()
 
@@ -308,15 +283,13 @@ def classify(raw: str) -> Office:
     if country == "RO":
         cls = LocationClass.remote_romania if remote else LocationClass.romania
     elif remote and country in NEEDS_VISA:
-        cls = (
-            LocationClass.remote_needs_visa
-        )  # kept only with a visa/contractor signal (filters.py)
+        cls = LocationClass.remote_needs_visa
     elif remote and country in EUROPE:
-        cls = LocationClass.remote_europe_country  # incl. hybrid-remote: Robert's call
+        cls = LocationClass.remote_europe_country
     elif country is not None or not remote:
         cls = LocationClass.other
     elif set(re.findall(r"[a-z0-9]+", text)) - SCOPE_WORDS:
-        cls = LocationClass.other  # remote, but tied to a place we don't recognise
+        cls = LocationClass.other
     elif _has(text, EUROPE_REGION):
         cls = LocationClass.remote_europe
     else:
@@ -325,5 +298,4 @@ def classify(raw: str) -> Office:
 
 
 def keep(offices: list[Office]) -> bool:
-    """A job is kept if any one of its offices is in a kept class."""
     return any(o.location_class in KEPT_CLASSES for o in offices)

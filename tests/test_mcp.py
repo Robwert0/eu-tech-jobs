@@ -1,9 +1,3 @@
-"""Specs for job search (src/jobhunt/queries.py), the MCP server (mcp_server.py) and the CLI.
-
-search_jobs is a plain function over the database; the MCP tool `find_jobs` is a thin wrapper
-that opens the database named by $JOBHUNT_DB and calls it.
-"""
-
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from sqlite3 import Connection
@@ -43,10 +37,9 @@ def make_job(
 
 
 def store(conn: Connection, job: Job, score: int | None = None, closed: bool = False) -> None:
-    """Put a job in the database the way the pipeline would: crawled, found, maybe scored."""
     db.upsert_job(conn, job, NOW)
     db.set_state(conn, job.id, AppState.found)
-    if score is not None:  # scoring arrives in Task 10; set the column directly for now
+    if score is not None:
         conn.execute("UPDATE applications SET score = ? WHERE job_id = ?", (score, job.id))
     if closed:
         conn.execute("UPDATE jobs SET closed_at = ? WHERE id = ?", (NOW.isoformat(), job.id))
@@ -64,9 +57,6 @@ def ids(results: list) -> list[str]:  # type: ignore[type-arg]
     return [r.id for r in results]
 
 
-# --- search_jobs --------------------------------------------------------------------------
-
-
 def test_find_jobs_filters_location_and_query(conn: Connection) -> None:
     store(conn, make_job("a", title="Python Backend Engineer"))
     store(conn, make_job("b", title="Python Data Engineer", location="Remote - Europe"))
@@ -75,7 +65,6 @@ def test_find_jobs_filters_location_and_query(conn: Connection) -> None:
 
     found = search_jobs(conn, query="python", location_class=["romania"], now=NOW)
 
-    # a: title matches; d: description matches (case-insensitive); b: wrong class; c: no python
     assert sorted(ids(found)) == ["greenhouse:acme:a", "greenhouse:acme:d"]
 
 
@@ -86,7 +75,6 @@ def test_find_jobs_country_filter(conn: Connection) -> None:
 
 
 def test_find_jobs_excludes_closed(conn: Connection) -> None:
-    """Review Focus 4: a posting gone from its board never shows up in search."""
     store(conn, make_job("open"))
     store(conn, make_job("gone"), closed=True)
     assert ids(search_jobs(conn, now=NOW)) == ["greenhouse:acme:open"]
@@ -98,7 +86,6 @@ def test_find_jobs_limit_and_order(conn: Connection) -> None:
     store(conn, make_job("s90_old", posted_days_ago=5), score=90)
     store(conn, make_job("s90_new", posted_days_ago=1), score=90)
 
-    # score desc (unscored last), then newest first; limit cuts the tail
     assert ids(search_jobs(conn, limit=3, now=NOW)) == [
         "greenhouse:acme:s90_new",
         "greenhouse:acme:s90_old",
@@ -128,15 +115,12 @@ def test_job_summary_fields(conn: Connection) -> None:
     assert summary.title == "Backend Engineer"
     assert summary.company == "Acme"
     assert summary.offices == ["New York, NY", "Bucharest, Romania"]
-    assert summary.location_class == "romania"  # the first KEPT office's class, not "other"
+    assert summary.location_class == "romania"
     assert summary.url == "https://example.com/x"
     assert summary.apply_url == "https://example.com/x/apply"
     assert summary.posted_at == NOW - timedelta(days=1)
     assert summary.score == 88
     assert summary.state == "found"
-
-
-# --- MCP server ---------------------------------------------------------------------------
 
 
 async def test_mcp_lists_find_jobs_tool() -> None:
@@ -171,9 +155,6 @@ async def test_mcp_find_jobs_reads_jobhunt_db(
     assert [j["id"] for j in result.structured_content["result"]] == ["greenhouse:acme:a"]
 
 
-# --- CLI ----------------------------------------------------------------------------------
-
-
 def test_cli_crawl_on_empty_database(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -190,7 +171,6 @@ def test_cli_without_command_shows_usage(capsys: pytest.CaptureFixture[str]) -> 
 
 
 def test_find_jobs_query_matches_all_words_anywhere(conn: Connection) -> None:
-    """The tool says 'words to find': every word must appear, in title or description."""
     store(conn, make_job("both", title="Backend Engineer", description="We write Python."))
     store(conn, make_job("one", title="Backend Engineer", description="We write Go."))
     assert ids(search_jobs(conn, query="python backend", now=NOW)) == ["greenhouse:acme:both"]
@@ -206,7 +186,7 @@ def test_summary_shows_best_location_class(conn: Connection) -> None:
     job.offices = [classify("Remote Germany"), classify("Remote"), classify("Bucharest")]
     store(conn, job)
     [summary] = search_jobs(conn, now=NOW)
-    assert summary.location_class == "romania"  # best for Robert, not merely the first kept
+    assert summary.location_class == "romania"
 
 
 def test_summary_reports_hiring_signals(conn: Connection) -> None:

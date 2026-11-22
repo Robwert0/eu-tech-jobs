@@ -1,5 +1,3 @@
-"""Specs for jobhunt.filters: which crawled jobs are worth storing at all."""
-
 import pytest
 
 from jobhunt.enums import Ats
@@ -46,7 +44,7 @@ def test_detects_other_language_requirement(text: str) -> None:
     "text",
     [
         "Fluent English is required.",
-        "You will join our German office in Berlin.",  # a place, not a skill
+        "You will join our German office in Berlin.",
         "Experience with Python, Go and PostgreSQL.",
         "Our team spans Germany, France and Spain.",
         "",
@@ -69,7 +67,6 @@ def test_keep_job_language_rule_also_reads_title() -> None:
 
 
 def test_language_rule_only_applies_to_remote_europe_country() -> None:
-    """Jobs already open to Romania keep the current behaviour (the rule was asked for these)."""
     assert keep_job(job("Bucharest, Romania", description="Fluent German is required."))
     assert keep_job(job("Remote - Europe", description="Fluent German is required."))
 
@@ -83,9 +80,6 @@ def test_other_only_is_dropped() -> None:
     assert not keep_job(job("Remote - Toronto"))
 
 
-# --- US / UK remote: needs a visa, so only with a positive signal (Robert, 2026-11-22) -----------
-
-
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
@@ -96,7 +90,7 @@ def test_other_only_is_dropped() -> None:
         ("This role is not eligible for visa sponsorship.", False),
         ("Applicants must be authorized to work in the US without sponsorship.", False),
         ("You must have the right to work in the UK.", False),
-        ("Experience with Python and Kubernetes.", None),  # silent
+        ("Experience with Python and Kubernetes.", None),
     ],
 )
 def test_visa_sponsorship_signal(text: str, expected: bool | None) -> None:
@@ -112,7 +106,7 @@ def test_visa_sponsorship_signal(text: str, expected: bool | None) -> None:
         ("Freelance engagement, 6 months.", True),
         ("We hire globally through an Employer of Record.", True),
         ("Full-time employee position with benefits.", False),
-        ("You will contract with our partners on behalf of customers.", False),  # verb, not a role
+        ("You will contract with our partners on behalf of customers.", False),
     ],
 )
 def test_contractor_signal(text: str, expected: bool) -> None:
@@ -140,7 +134,6 @@ def test_us_remote_no_sponsorship_is_dropped() -> None:
 
 
 def test_contractor_beats_no_sponsorship() -> None:
-    """A contractor works from Romania through his own firm: no visa needed."""
     text = "We do not sponsor visas. Contractors welcome."
     assert keep_job(job("Remote - US", description=text))
 
@@ -154,7 +147,6 @@ def test_eu_country_needs_no_visa_signal() -> None:
     assert keep_job(job("Remote Germany", description="Python, Go."))
 
 
-# Real text from the live crawl (2026-11-22): boilerplate must not count as a hiring signal.
 @pytest.mark.parametrize(
     "text",
     [
@@ -195,8 +187,6 @@ def test_not_able_to_sponsor_is_no(text: str) -> None:
     assert visa_sponsorship(text) is False
 
 
-# Second live pass (2026-11-22): sponsorship must be about a VISA;
-# "anywhere" must not mean "anywhere in the US".
 @pytest.mark.parametrize(
     "text",
     [

@@ -1,5 +1,3 @@
-"""Searching stored jobs: the logic behind the `find_jobs` MCP tool."""
-
 import sqlite3
 from datetime import UTC, datetime, timedelta
 
@@ -9,7 +7,6 @@ from jobhunt import filters
 from jobhunt.enums import KEPT_CLASSES, LocationClass
 from jobhunt.models import Job
 
-# Most useful for Robert first: on-site Romania ... remote tied to another country last.
 BEST_FIRST = [
     LocationClass.romania,
     LocationClass.remote_romania,
@@ -31,8 +28,8 @@ class JobSummary(BaseModel):
     posted_at: datetime | None
     score: int | None
     state: str | None
-    visa_sponsorship: bool | None  # True offered, False refused / needs work rights, None silent
-    contractor_ok: bool  # mentions contractors / B2B / freelance / Employer of Record
+    visa_sponsorship: bool | None
+    contractor_ok: bool
 
 
 def search_jobs(
@@ -47,7 +44,6 @@ def search_jobs(
     limit: int = 20,
     now: datetime | None = None,
 ) -> list[JobSummary]:
-    """Open jobs matching every given filter, best score first, then newest."""
     now = now or datetime.now(UTC)
     rows = conn.execute(
         """SELECT j.json, a.state, a.score
@@ -83,7 +79,6 @@ def _text(job: Job) -> str:
 
 
 def _mentions(job: Job, query: str) -> bool:
-    """Every word of the query appears somewhere in the title or description."""
     haystack = f"{job.title} {job.description}".lower()
     return all(word in haystack for word in query.lower().split())
 

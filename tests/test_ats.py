@@ -1,9 +1,3 @@
-"""Specs for the Greenhouse, Lever and Ashby adapters (src/jobhunt/ats/).
-
-Fixtures are real public board responses (GitLab on Greenhouse, Palantir on Lever,
-Linear on Ashby) trimmed to 3 jobs, recorded 2026-11-22.
-"""
-
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -48,8 +42,6 @@ async def test_greenhouse_parses_fixture() -> None:
     assert job.apply_url == (
         "https://job-boards.greenhouse.io/embed/job_app?for=gitlab&token=8704363002"
     )
-    # location.name holds several places separated by ";" — each becomes its own office,
-    # then offices[].location (or .name) are added; exact duplicates are dropped.
     assert [o.raw for o in job.offices] == [
         "Remote, Canada",
         "Remote, Poland",
@@ -58,7 +50,6 @@ async def test_greenhouse_parses_fixture() -> None:
     ]
     assert job.offices[0].location_class == LocationClass.other
     assert job.posted_at == datetime.fromisoformat("2026-08-19T09:38:27-04:00")
-    # Greenhouse `content` is HTML that is itself entity-escaped (&lt;p&gt;...).
     assert job.description.startswith("GitLab is the intelligent orchestration platform")
     assert "<" not in job.description and "&lt;" not in job.description
 
@@ -78,11 +69,9 @@ async def test_lever_parses_fixture() -> None:
     assert job.title == "American Tech Fellowship"
     assert job.url == "https://jobs.lever.co/palantir/0ccbe620-a3ef-41d1-a5c4-68e56b3c91d0"
     assert job.apply_url == job.url + "/apply"
-    # workplaceType == "remote" prefixes "Remote - "; location + allLocations deduped.
     assert [o.raw for o in job.offices] == ["Remote - North America"]
     assert job.offices[0].location_class == LocationClass.other
-    assert job.posted_at == datetime.fromtimestamp(1750119374.985, UTC)  # createdAt is ms
-    # Not remote: no prefix.
+    assert job.posted_at == datetime.fromtimestamp(1750119374.985, UTC)
     assert [o.raw for o in jobs[2].offices] == ["London, United Kingdom"]
     assert job.description == fixture("lever_jobs.json")[0]["descriptionPlain"].strip()
 
@@ -123,13 +112,11 @@ async def test_ashby_parses_fixture() -> None:
     assert [o.raw for o in job.offices] == ["Remote - Europe"]
     assert job.offices[0].location_class == LocationClass.remote_europe
     assert job.posted_at == datetime.fromisoformat("2021-04-27T20:13:45.158+00:00")
-    # Second job is remote North America: offices must come from each job's own data.
     assert [o.raw for o in jobs[1].offices] == ["Remote - North America"]
     assert jobs[1].offices[0].location_class == LocationClass.other
 
 
 def ashby_job(**overrides: Any) -> dict[str, Any]:
-    """A minimal Ashby posting; override fields per test."""
     job = fixture("ashby_jobs.json")["jobs"][0]
     job.update(overrides)
     return job
@@ -142,11 +129,8 @@ async def test_ashby_location_variants() -> None:
             200,
             json={
                 "jobs": [
-                    # On-site: place kept as-is, no prefix.
                     ashby_job(id="a", isRemote=False, location="Bucharest, Romania"),
-                    # Already says remote: no "Remote - Remote".
                     ashby_job(id="b", isRemote=True, location="Remote"),
-                    # Secondary locations become extra offices, prefixed too.
                     ashby_job(
                         id="c",
                         isRemote=True,
@@ -208,10 +192,9 @@ async def test_lever_eu_host_used() -> None:
         ),
         ("https://example.com/careers", None),
         (
-            "https://boards.greenhouse.io/embed/job_board?for=acme",  # embed form: slug in ?for=
+            "https://boards.greenhouse.io/embed/job_board?for=acme",
             Board(company="Acme", ats=Ats.greenhouse, slug="acme"),
         ),
-        # Greenhouse EU data residency (found by probing 2026-11-22; plan missed it).
         (
             "https://job-boards.eu.greenhouse.io/acme",
             Board(company="Acme", ats=Ats.greenhouse, slug="acme"),
@@ -220,14 +203,12 @@ async def test_lever_eu_host_used() -> None:
             "https://boards.eu.greenhouse.io/acme",
             Board(company="Acme", ats=Ats.greenhouse, slug="acme"),
         ),
-        ("https://boards.greenhouse.io/embed/job_board", None),  # embed without ?for=
-        # The vendor's own non-board sites (footer "Powered by …", help centre) and
-        # lookalikes are NOT boards: detection is an exact-host allowlist, not a word match.
+        ("https://boards.greenhouse.io/embed/job_board", None),
         ("https://www.greenhouse.io/careers", None),
         ("https://support.greenhouse.io/hc/en-us", None),
         ("https://www.lever.co/", None),
         ("https://greenhouse-plants.com/shop", None),
-        ("https://jobs.lever.co/", None),  # no slug: must not crash
+        ("https://jobs.lever.co/", None),
     ],
 )
 def test_detect_board_urls(url: str, expected: Board | None) -> None:
@@ -259,12 +240,8 @@ async def test_probe_hit_returns_board() -> None:
     assert board == Board(company="linear", ats=Ats.ashby, slug="linear")
 
 
-# --- Final review: one odd posting must not break its board -------------------------------
-
-
 @respx.mock
 async def test_explicit_nulls_treated_as_empty() -> None:
-    """Vendors send `null` for empty lists/objects; `.get(key, [])` does not cover that."""
     lever = fixture("lever_jobs.json")
     lever[0]["categories"]["allLocations"] = None
     respx.get("https://api.lever.co/v0/postings/palantir").mock(
@@ -327,14 +304,11 @@ async def test_broken_posting_is_skipped_not_the_whole_board(
     ats: Ats, url: str, payload: Any, drop: Any
 ) -> None:
     data = payload()
-    drop(data)  # second posting loses a required field
+    drop(data)
     respx.get(url).mock(return_value=httpx.Response(200, json=data))
     async with fast_client() as c:
         jobs = await ADAPTERS[ats].fetch_jobs(c, Board(company="B", ats=ats, slug="b"))
-    assert len(jobs) == 2  # postings 1 and 3 still parsed
-
-
-# --- softgarden (Orange Romania): schema.org JobPosting DataFeed -----------------------------
+    assert len(jobs) == 2
 
 
 @respx.mock
@@ -347,7 +321,7 @@ async def test_softgarden_parses_feed() -> None:
         jobs = await ADAPTERS[Ats.softgarden].fetch_jobs(c, board)
 
     assert [j.title for j in jobs] == [
-        "Reprezentant Vanzari Orange Shop Deva",  # invisible zero-width space stripped
+        "Reprezentant Vanzari Orange Shop Deva",
         "Konsultant / Konsultantka Orange - firmowy salon Smart Store w Warszawie (Arkadia)",
         "Site Reliability Engineer",
     ]
@@ -355,10 +329,9 @@ async def test_softgarden_parses_feed() -> None:
     assert sre.id == "softgarden:cariere.orange.ro:67898767"
     assert sre.url.startswith("https://skk.erecruiter.pl/Offer.aspx?oid=5021211")
     assert sre.apply_url == sre.url
-    # Polish country names in the feed are translated, so the classifier understands them
     assert [o.raw for o in sre.offices] == ["Bucharest, Romania"]
     assert sre.offices[0].location_class == LocationClass.romania
-    assert jobs[0].offices[0].location_class == LocationClass.romania  # Deva
+    assert jobs[0].offices[0].location_class == LocationClass.romania
     assert jobs[1].offices[0].raw == "Warszawa, Poland"
     assert jobs[1].offices[0].location_class == LocationClass.other
     assert sre.posted_at == datetime.fromisoformat("2026-10-19T12:14:37.000+00:00")

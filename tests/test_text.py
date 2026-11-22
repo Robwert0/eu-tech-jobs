@@ -1,5 +1,3 @@
-"""Specs for jobhunt.ats.text.html_to_text: job descriptions as plain text."""
-
 from jobhunt.ats.text import html_to_text
 
 

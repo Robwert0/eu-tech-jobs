@@ -53,7 +53,6 @@ async def crawl(
         kept = [job for job in result if keep_job(job)]
         for job in kept:
             is_new = db.upsert_job(conn, job, now)
-            # Not `if is_new`: a crash after upsert_job would otherwise leave the job stateless.
             if db.get_state(conn, job.id) is None:
                 db.set_state(conn, job.id, AppState.found)
             if is_new:

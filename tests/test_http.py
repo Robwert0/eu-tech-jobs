@@ -6,8 +6,6 @@ from jobhunt.http import FetchError, PoliteClient
 
 
 class FakeTime:
-    """A clock whose sleep() advances time instantly."""
-
     def __init__(self) -> None:
         self.now = 1000.0
         self.sleeps: list[float] = []
@@ -33,7 +31,7 @@ async def test_retries_429_then_succeeds() -> None:
     async with client(t) as c:
         assert await c.get_json("https://a.test/x") == {"ok": 1}
     assert route.call_count == 3
-    assert t.sleeps == [0.5, 1.0]  # exponential backoff 0.5 * 2**attempt
+    assert t.sleeps == [0.5, 1.0]
 
 
 @respx.mock

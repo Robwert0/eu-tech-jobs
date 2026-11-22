@@ -44,7 +44,7 @@ async def discover_board(
     *,
     adapters: Mapping[Ats, AtsAdapter] = ADAPTERS,
 ) -> Board | None:
-    if company.board is not None:  # configured explicitly: nothing to discover
+    if company.board is not None:
         return company.board
     if company.careers_url:
         try:

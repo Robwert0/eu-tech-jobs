@@ -1,5 +1,3 @@
-"""A polite async HTTP client: per-host spacing, bounded retries, generic User-Agent."""
-
 import asyncio
 import time
 from collections.abc import Awaitable, Callable
@@ -15,8 +13,6 @@ RETRY_STATUSES = frozenset({429, 500, 502, 503, 504})
 
 
 class FetchError(Exception):
-    """A request that failed for good (after retries, or with a non-retryable status)."""
-
     def __init__(self, url: str, status: int | None, reason: str) -> None:
         super().__init__(f"{status} {reason} ({url})")
         self.url, self.status, self.reason = url, status, reason
@@ -61,7 +57,6 @@ class PoliteClient:
         return (await self._request("POST", url, json=body, headers=headers)).json()
 
     async def _wait_turn(self, host: str) -> None:
-        """Hold the host's lock while waiting, so concurrent callers queue up in order."""
         lock = self._locks.setdefault(host, asyncio.Lock())
         async with lock:
             last = self._last.get(host)

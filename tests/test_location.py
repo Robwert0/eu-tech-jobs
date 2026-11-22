@@ -19,11 +19,10 @@ CASES = [
     ("Worldwide (Remote)", None, L.remote_global),
     ("Remote - US", "US", L.remote_needs_visa),
     ("Remote, United States", "US", L.remote_needs_visa),
-    ("Remote - Germany", "DE", L.remote_europe_country),  # changed 2026-11-22 (Robert)
+    ("Remote - Germany", "DE", L.remote_europe_country),
     ("Berlin, Germany", "DE", L.other),
     ("New York, NY", "US", L.other),
     ("", None, L.other),
-    # Beyond the plan's table: remote locked to a non-European region is not global.
     ("Remote - LATAM", None, L.other),
     ("Remote, APAC", None, L.other),
 ]
@@ -42,8 +41,6 @@ def test_keep_any_kept_office_wins() -> None:
     assert keep([]) is False
 
 
-# Real strings from the first live crawl (2026-11-22). Remote tied to a place the classifier
-# does not know must NOT become remote-global: global means "nothing but global words".
 @pytest.mark.parametrize(
     "raw",
     [
@@ -85,7 +82,7 @@ def test_only_global_words_is_remote_global(raw: str) -> None:
         "Remote-friendly (Europe)",
         "Remote across Europe",
         "Remote within the EU",
-        "Remote - Europe (Iaşi welcome)",  # cedilla ş must fold like comma ș
+        "Remote - Europe (Iaşi welcome)",
     ],
 )
 def test_remote_europe_phrasings(raw: str) -> None:
@@ -97,9 +94,6 @@ def test_cedilla_spellings_are_romania() -> None:
     assert classify("Timişoara").location_class == L.romania
 
 
-# Decision 2026-11-22 (Robert): any posting in a European country that mentions remote is kept
-# as remote-europe-country — UK and hybrid-remote included ("worth trying to apply to all").
-# Remote outside Europe stays other.
 @pytest.mark.parametrize(
     ("raw", "country", "cls"),
     [
@@ -113,12 +107,12 @@ def test_cedilla_spellings_are_romania() -> None:
         ("Remote - Manchester", "GB", L.remote_needs_visa),
         ("Remote - Hybrid (UK)", "GB", L.remote_needs_visa),
         ("Remote - Hybrid (Germany)", "DE", L.remote_europe_country),
-        ("Remote - Belgrade, Serbia", "RS", L.remote_europe_country),  # Europe, not only EU
+        ("Remote - Belgrade, Serbia", "RS", L.remote_europe_country),
         ("Remote - Kyiv, Ukraine", "UA", L.remote_europe_country),
         ("Remote - Toronto", "CA", L.other),
-        ("Berlin, Germany", "DE", L.other),  # on-site stays other
+        ("Berlin, Germany", "DE", L.other),
         ("Remote, United States", "US", L.remote_needs_visa),
-        ("New York, NY", "US", L.other),  # on-site US stays other
+        ("New York, NY", "US", L.other),
     ],
 )
 def test_remote_in_one_european_country(raw: str, country: str, cls: L) -> None:
