@@ -84,3 +84,9 @@ def test_close_missing_marks_only_absent_jobs(conn) -> None:  # type: ignore[no-
     closed = dict(conn.execute("SELECT id, closed_at FROM jobs").fetchall())
     assert closed[a.id] is None
     assert closed[b.id] == T2.isoformat()
+
+
+def test_list_boards_round_trip(conn) -> None:  # type: ignore[no-untyped-def]
+    eu = Board(company="Beta", ats=Ats.lever, slug="beta", host="api.eu.lever.co")
+    db.upsert_board(conn, eu)
+    assert sorted(db.list_boards(conn), key=lambda b: b.key) == [BOARD, eu]
