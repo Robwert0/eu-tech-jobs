@@ -40,3 +40,39 @@ def test_keep_any_kept_office_wins() -> None:
     assert keep([classify("New York, NY"), classify("Bucharest, Romania")]) is True
     assert keep([classify("New York, NY"), classify("Berlin, Germany")]) is False
     assert keep([]) is False
+
+
+# Real strings from the first live crawl (2026-11-22). Remote tied to a place the classifier
+# does not know must NOT become remote-global: global means "nothing but global words".
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "Remote, AMER",
+        "Distributed, AMER",
+        "Remote - Seoul, South Korea",
+        "Remote - São Paulo",
+        "Remote-Jakarta",
+        "Remote, KSA",
+        "Ontario - Remote",
+        "Remote - Mountain View",
+        "Remote - Europe (Dubai)",
+    ],
+)
+def test_remote_with_unknown_place_is_other(raw: str) -> None:
+    assert classify(raw).location_class == L.other
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        "Home Based - Worldwide",
+        "Remote, Global",
+        "Distributed, Global",
+        "Remote Based",
+        "Distributed",
+        "Remote ",
+        "Fully Remote",
+    ],
+)
+def test_only_global_words_is_remote_global(raw: str) -> None:
+    assert classify(raw).location_class == L.remote_global

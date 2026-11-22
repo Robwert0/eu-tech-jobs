@@ -20,20 +20,19 @@ EUROPE_NON_EU: frozenset[str] = frozenset("GB CH NO IS LI".split())
 
 REMOTE = ["remote", "anywhere", "worldwide", "distributed", "work from home", "wfh", "virtual"]
 EUROPE_REGION = ["europe", "european", "emea", "eu", "cet", "european union"]
-# Remote scopes outside Europe: "Remote - LATAM" is not open to someone in Romania.
-OTHER_REGION = [
-    "latam",
-    "americas",
-    "north america",
-    "south america",
-    "apac",
-    "asia",
-    "asia pacific",
-    "oceania",
-    "africa",
-    "middle east",
-    "mena",
-]
+
+# A remote location is only remote-europe / remote-global when every word in it is one of
+# these (an allowlist). Any other word names a place we may not know — "Remote - Seoul",
+# "Remote, AMER", "Remote-Jakarta" — so it fails closed to `other`. Listing every non-European
+# place instead would be a blocklist that is never complete.
+SCOPE_WORDS: frozenset[str] = frozenset(
+    # remote / global
+    "remote anywhere worldwide global distributed virtual wfh work from home based fully first"
+    # Europe
+    " europe european emea eu union cet"
+    # filler seen in real postings: "Remote (Europe only)", "Remote (CET timezone)"
+    " only or and time zone zones timezone timezones".split()
+)
 
 ROMANIA = [
     "romania",
@@ -264,10 +263,10 @@ def classify(raw: str) -> Office:
         cls = LocationClass.remote_romania if remote else LocationClass.romania
     elif country is not None or not remote:
         cls = LocationClass.other
+    elif set(re.findall(r"[a-z0-9]+", text)) - SCOPE_WORDS:
+        cls = LocationClass.other  # remote, but tied to a place we don't recognise
     elif _has(text, EUROPE_REGION):
         cls = LocationClass.remote_europe
-    elif _has(text, OTHER_REGION):
-        cls = LocationClass.other
     else:
         cls = LocationClass.remote_global
     return Office(raw=raw, country=country, location_class=cls)
