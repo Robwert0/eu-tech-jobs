@@ -147,6 +147,18 @@ async def test_lever_eu_host_used() -> None:
             "https://boards.greenhouse.io/embed/job_board?for=acme",  # embed form: slug in ?for=
             Board(company="Acme", ats=Ats.greenhouse, slug="acme"),
         ),
+        # Greenhouse EU data residency (found by probing 2026-11-22; plan missed it).
+        (
+            "https://job-boards.eu.greenhouse.io/acme",
+            Board(company="Acme", ats=Ats.greenhouse, slug="acme"),
+        ),
+        # The vendor's own non-board sites (footer "Powered by …", help centre) and
+        # lookalikes are NOT boards: detection is an exact-host allowlist, not a word match.
+        ("https://www.greenhouse.io/careers", None),
+        ("https://support.greenhouse.io/hc/en-us", None),
+        ("https://www.lever.co/", None),
+        ("https://greenhouse-plants.com/shop", None),
+        ("https://jobs.lever.co/", None),  # no slug: must not crash
     ],
 )
 def test_detect_board_urls(url: str, expected: Board | None) -> None:

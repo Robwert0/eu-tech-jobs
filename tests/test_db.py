@@ -20,8 +20,9 @@ def make_job(external_id: str = "1") -> Job:
         title="Backend Engineer",
         url=f"https://example.com/jobs/{external_id}",
         apply_url=f"https://example.com/jobs/{external_id}/apply",
-        offices=[Office(raw="Bucharest, Romania", country="RO",
-                        location_class=LocationClass.romania)],
+        offices=[
+            Office(raw="Bucharest, Romania", country="RO", location_class=LocationClass.romania)
+        ],
         description="Python",
         posted_at=None,
     )
@@ -70,7 +71,8 @@ def test_set_state_writes_event(conn) -> None:  # type: ignore[no-untyped-def]
     db.set_state(conn, job.id, AppState.found)
     db.set_state(conn, job.id, AppState.skipped, reason="low_fit")
     events = conn.execute(
-        "SELECT from_state, to_state, reason FROM events ORDER BY rowid").fetchall()
+        "SELECT from_state, to_state, reason FROM events ORDER BY rowid"
+    ).fetchall()
     assert [tuple(e) for e in events] == [(None, "found", None), ("found", "skipped", "low_fit")]
 
 

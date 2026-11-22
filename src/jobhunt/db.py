@@ -120,8 +120,13 @@ def upsert_job(conn: sqlite3.Connection, job: Job, seen_at: datetime) -> bool:
                VALUES (?, ?, ?, ?, ?)
                ON CONFLICT(id) DO UPDATE SET
                  json = excluded.json, last_seen_at = excluded.last_seen_at, closed_at = NULL""",
-            (job.id, job.board.key, job.model_dump_json(), seen_at.isoformat(),
-             seen_at.isoformat()),
+            (
+                job.id,
+                job.board.key,
+                job.model_dump_json(),
+                seen_at.isoformat(),
+                seen_at.isoformat(),
+            ),
         )
     return existed is None
 
