@@ -1,13 +1,15 @@
-from datetime import datetime, UTC
+from datetime import UTC, datetime
 from typing import Any
 
 from jobhunt.enums import Ats
-from jobhunt.http import PoliteClient, FetchError
+from jobhunt.http import FetchError, PoliteClient
 from jobhunt.location import classify
 from jobhunt.models import Board, Job, Office
 
-def _url(host: str |None, slug: str) -> str:
+
+def _url(host: str | None, slug: str) -> str:
     return f"https://{host or 'api.lever.co'}/v0/postings/{slug}"
+
 
 class LeverAdapter:
     ats = Ats.lever
