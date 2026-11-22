@@ -21,6 +21,9 @@ class LocationClass(StrEnum):
     # (e.g. "Remote - Germany"): worth applying, but the employer may want local residence or a
     # B2B contract. Manual list, not auto-applied (spec amendment 2026-11-22).
     remote_europe_country = "remote-europe-country"
+    # Remote in a country where a Romanian needs a visa (US, UK). Kept only when the posting
+    # signals visa sponsorship, contractors (Robert has a Romanian firm) or hiring abroad.
+    remote_needs_visa = "remote-needs-visa"
     other = "other"
 
 
@@ -31,6 +34,7 @@ KEPT_CLASSES: frozenset[LocationClass] = frozenset(
         LocationClass.remote_europe,
         LocationClass.remote_global,
         LocationClass.remote_europe_country,
+        LocationClass.remote_needs_visa,
     }
 )
 

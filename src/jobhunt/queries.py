@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 from pydantic import BaseModel
 
+from jobhunt import filters
 from jobhunt.enums import KEPT_CLASSES, LocationClass
 from jobhunt.models import Job
 
@@ -15,6 +16,7 @@ BEST_FIRST = [
     LocationClass.remote_europe,
     LocationClass.remote_global,
     LocationClass.remote_europe_country,
+    LocationClass.remote_needs_visa,
 ]
 
 
@@ -29,6 +31,8 @@ class JobSummary(BaseModel):
     posted_at: datetime | None
     score: int | None
     state: str | None
+    visa_sponsorship: bool | None  # True offered, False refused / needs work rights, None silent
+    contractor_ok: bool  # mentions contractors / B2B / freelance / Employer of Record
 
 
 def search_jobs(
@@ -39,6 +43,7 @@ def search_jobs(
     country: str | None = None,
     posted_since_days: int | None = None,
     min_score: int | None = None,
+    contractor_ok: bool | None = None,
     limit: int = 20,
     now: datetime | None = None,
 ) -> list[JobSummary]:
@@ -65,10 +70,16 @@ def search_jobs(
             continue
         if min_score is not None and (score is None or score < min_score):
             continue
+        if contractor_ok is not None and filters.contractor_ok(_text(job)) != contractor_ok:
+            continue
         matches.append((job, state, score))
 
     matches.sort(key=_best_first)
     return [_summary(job, state, score) for job, state, score in matches[:limit]]
+
+
+def _text(job: Job) -> str:
+    return f"{job.title}\n{job.description}"
 
 
 def _mentions(job: Job, query: str) -> bool:
@@ -99,4 +110,6 @@ def _summary(job: Job, state: str | None, score: int | None) -> JobSummary:
         posted_at=job.posted_at,
         score=score,
         state=state,
+        visa_sponsorship=filters.visa_sponsorship(_text(job)),
+        contractor_ok=filters.contractor_ok(_text(job)),
     )

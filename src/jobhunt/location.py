@@ -17,6 +17,8 @@ EU_COUNTRIES: frozenset[str] = frozenset(
     "AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI ES SE".split()
 )
 EUROPE_NON_EU: frozenset[str] = frozenset("GB CH NO IS LI".split())
+# Countries where a Romanian needs a visa / work permit to be employed (Robert, 2026-11-22).
+NEEDS_VISA: frozenset[str] = frozenset({"US", "GB"})
 # Every European country we can detect. A remote posting in any of them is worth applying to
 # (Robert, 2026-11-22), including the UK and non-EU Europe: kept as remote-europe-country.
 EUROPE: frozenset[str] = EU_COUNTRIES | EUROPE_NON_EU | frozenset("RS UA MD AL BA ME MK XK".split())
@@ -271,6 +273,10 @@ def classify(raw: str) -> Office:
 
     if country == "RO":
         cls = LocationClass.remote_romania if remote else LocationClass.romania
+    elif remote and country in NEEDS_VISA:
+        cls = (
+            LocationClass.remote_needs_visa
+        )  # kept only with a visa/contractor signal (filters.py)
     elif remote and country in EUROPE:
         cls = LocationClass.remote_europe_country  # incl. hybrid-remote: Robert's call
     elif country is not None or not remote:

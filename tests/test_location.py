@@ -17,8 +17,8 @@ CASES = [
     ("Remote", None, L.remote_global),
     ("Anywhere", None, L.remote_global),
     ("Worldwide (Remote)", None, L.remote_global),
-    ("Remote - US", "US", L.other),
-    ("Remote, United States", "US", L.other),
+    ("Remote - US", "US", L.remote_needs_visa),
+    ("Remote, United States", "US", L.remote_needs_visa),
     ("Remote - Germany", "DE", L.remote_europe_country),  # changed 2026-11-22 (Robert)
     ("Berlin, Germany", "DE", L.other),
     ("New York, NY", "US", L.other),
@@ -109,15 +109,16 @@ def test_cedilla_spellings_are_romania() -> None:
         ("Remote - Vienna, Austria", "AT", L.remote_europe_country),
         ("Remote (Sweden)", "SE", L.remote_europe_country),
         ("Remote - Zurich", "CH", L.remote_europe_country),
-        ("Remote - London, UK", "GB", L.remote_europe_country),
-        ("Remote - Manchester", "GB", L.remote_europe_country),
-        ("Remote - Hybrid (UK)", "GB", L.remote_europe_country),
+        ("Remote - London, UK", "GB", L.remote_needs_visa),
+        ("Remote - Manchester", "GB", L.remote_needs_visa),
+        ("Remote - Hybrid (UK)", "GB", L.remote_needs_visa),
         ("Remote - Hybrid (Germany)", "DE", L.remote_europe_country),
         ("Remote - Belgrade, Serbia", "RS", L.remote_europe_country),  # Europe, not only EU
         ("Remote - Kyiv, Ukraine", "UA", L.remote_europe_country),
         ("Remote - Toronto", "CA", L.other),
         ("Berlin, Germany", "DE", L.other),  # on-site stays other
-        ("Remote, United States", "US", L.other),
+        ("Remote, United States", "US", L.remote_needs_visa),
+        ("New York, NY", "US", L.other),  # on-site US stays other
     ],
 )
 def test_remote_in_one_european_country(raw: str, country: str, cls: L) -> None:

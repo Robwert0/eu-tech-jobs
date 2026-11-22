@@ -150,6 +150,7 @@ async def test_mcp_lists_find_jobs_tool() -> None:
         "country",
         "posted_since_days",
         "min_score",
+        "contractor_ok",
         "limit",
     }
 
@@ -206,3 +207,29 @@ def test_summary_shows_best_location_class(conn: Connection) -> None:
     store(conn, job)
     [summary] = search_jobs(conn, now=NOW)
     assert summary.location_class == "romania"  # best for Robert, not merely the first kept
+
+
+def test_summary_reports_hiring_signals(conn: Connection) -> None:
+    store(conn, make_job("v", description="Visa sponsorship is available. Contractors welcome."))
+    store(conn, make_job("n", description="We are unable to sponsor visas."))
+    by_id = {s.id: s for s in search_jobs(conn, now=NOW)}
+    assert (
+        by_id["greenhouse:acme:v"].visa_sponsorship,
+        by_id["greenhouse:acme:v"].contractor_ok,
+    ) == (
+        True,
+        True,
+    )
+    assert (
+        by_id["greenhouse:acme:n"].visa_sponsorship,
+        by_id["greenhouse:acme:n"].contractor_ok,
+    ) == (
+        False,
+        False,
+    )
+
+
+def test_find_jobs_contractor_filter(conn: Connection) -> None:
+    store(conn, make_job("c", description="B2B contract possible."))
+    store(conn, make_job("e", description="Full-time employee."))
+    assert ids(search_jobs(conn, contractor_ok=True, now=NOW)) == ["greenhouse:acme:c"]
