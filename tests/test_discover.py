@@ -5,10 +5,11 @@ import httpx
 import pytest
 import respx
 
+from jobhunt.cli import main
 from jobhunt.enums import Ats
 from jobhunt.http import FetchError, PoliteClient
 from jobhunt.models import Board, Company
-from jobhunt.seed.discover import discover_board, slug_candidates
+from jobhunt.seed.discover import Discovery, discover, discover_board, slug_candidates
 from jobhunt.seed.manual import load_companies
 
 GH = "https://boards-api.greenhouse.io/v1/boards"
@@ -182,3 +183,76 @@ def test_load_companies_with_explicit_board(tmp_path: Path) -> None:
     assert company.board == Board(
         company="Orange Romania", ats=Ats.softgarden, slug="cariere.orange.ro"
     )
+
+
+@respx.mock
+async def test_discover_reports_system_linked_from_careers_page() -> None:
+    respx.get("https://acme.example/careers").mock(
+        return_value=httpx.Response(
+            200, text='<a href="https://acme.wd3.myworkdayjobs.com/External">Open roles</a>'
+        )
+    )
+    all_probes_404()
+    company = Company(name="Acme", careers_url="https://acme.example/careers", source="manual")
+    async with fast_client() as c:
+        result = await discover(c, company)
+    assert result == Discovery(board=None, needs_adapter="workday")
+
+
+@respx.mock
+async def test_discover_reports_system_from_redirect() -> None:
+    respx.get("https://acme.example/careers").mock(
+        return_value=httpx.Response(
+            302, headers={"Location": "https://careers.smartrecruiters.com/Acme"}
+        )
+    )
+    respx.get("https://careers.smartrecruiters.com/Acme").mock(
+        return_value=httpx.Response(200, text="<p>Jobs</p>")
+    )
+    all_probes_404()
+    company = Company(name="Acme", careers_url="https://acme.example/careers", source="manual")
+    async with fast_client() as c:
+        result = await discover(c, company)
+    assert result.needs_adapter == "smartrecruiters"
+
+
+@respx.mock
+async def test_discover_found_board_needs_no_adapter() -> None:
+    respx.get(f"{ASHBY}/acme").mock(return_value=httpx.Response(200, json={"jobs": []}))
+    all_probes_404()
+    async with fast_client() as c:
+        result = await discover(c, Company(name="Acme", source="manual"))
+    assert result == Discovery(
+        board=Board(company="Acme", ats=Ats.ashby, slug="acme"), needs_adapter=None
+    )
+
+
+@respx.mock
+def test_cli_discover_ranks_systems_needing_adapters(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    for name in ("one", "two"):
+        respx.get(f"https://{name}.example/careers").mock(
+            return_value=httpx.Response(
+                200, text=f'<a href="https://{name}.wd5.myworkdayjobs.com/x">jobs</a>'
+            )
+        )
+    respx.get("https://three.example/careers").mock(
+        return_value=httpx.Response(200, text='<a href="https://apply.workable.com/three/">x</a>')
+    )
+    all_probes_404()
+    path = tmp_path / "companies.json"
+    path.write_text(
+        json.dumps(
+            [
+                {"name": n.title(), "careers_url": f"https://{n}.example/careers"}
+                for n in ("one", "two", "three")
+            ]
+        )
+    )
+    monkeypatch.setenv("JOBHUNT_DB", str(tmp_path / "t.db"))
+    assert main(["discover", "--companies", str(path)]) == 0
+    out = capsys.readouterr().out
+    assert "needs adapter: workday 2 (One, Two)" in out
+    assert "needs adapter: workable 1 (Three)" in out
+    assert out.index("workday") < out.index("workable")

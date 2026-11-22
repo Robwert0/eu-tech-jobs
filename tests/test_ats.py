@@ -7,7 +7,7 @@ import httpx
 import pytest
 import respx
 
-from jobhunt.ats.base import ADAPTERS, detect_board
+from jobhunt.ats.base import ADAPTERS, detect_board, detect_system
 from jobhunt.enums import Ats, LocationClass
 from jobhunt.http import PoliteClient
 from jobhunt.models import Board
@@ -348,3 +348,36 @@ async def test_softgarden_probe() -> None:
             company="cariere.orange.ro", ats=Ats.softgarden, slug="cariere.orange.ro"
         )
         assert await ADAPTERS[Ats.softgarden].probe(c, "nope.example") is None
+
+
+@pytest.mark.parametrize(
+    ("url", "system"),
+    [
+        ("https://siemens.wd3.myworkdayjobs.com/External/job/Bucharest/X_R1", "workday"),
+        ("https://career5.successfactors.eu/career?company=erste", "successfactors"),
+        ("https://jobs.sap.com/job/Bucharest/123/", "successfactors"),
+        ("https://jobs.smartrecruiters.com/BoschGroup/7440", "smartrecruiters"),
+        ("https://careers.smartrecruiters.com/Ubisoft2", "smartrecruiters"),
+        ("https://apply.workable.com/garmin-cluj/", "workable"),
+        ("https://acme.teamtailor.com/jobs", "teamtailor"),
+        ("https://acme.recruitee.com/o/backend", "recruitee"),
+        ("https://acme.jobs.personio.de/job/1", "personio"),
+        ("https://vodafone.eightfold.ai/careers", "eightfold"),
+        ("https://cdn.phenompeople.com/CareerConnectResources/X/en", "phenom"),
+        ("https://careers-keysight.icims.com/jobs/search", "icims"),
+        ("https://acme.taleo.net/careersection/2/jobsearch.ftl", "taleo"),
+        (
+            "https://eeho.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX/job/1",
+            "oracle",
+        ),
+        ("https://jobs.siemens.avature.net/careers", "avature"),
+        ("https://acme.bamboohr.com/careers", "bamboohr"),
+        ("https://jobs.jobvite.com/acme/job/oA1", "jobvite"),
+        ("https://job-boards.greenhouse.io/acme", None),
+        ("https://www.myworkdayjobs.com.evil.example/x", None),
+        ("https://example.com/careers", None),
+        ("/relative/link", None),
+    ],
+)
+def test_detect_system(url: str, system: str | None) -> None:
+    assert detect_system(url) == system

@@ -53,6 +53,10 @@ class PoliteClient:
     async def get_text(self, url: str) -> str:
         return (await self._request("GET", url)).text
 
+    async def get_page(self, url: str) -> tuple[str, str]:
+        response = await self._request("GET", url)
+        return str(response.url), response.text
+
     async def post_json(self, url: str, body: Any, headers: dict[str, str] | None = None) -> Any:
         return (await self._request("POST", url, json=body, headers=headers)).json()
 

@@ -89,3 +89,13 @@ async def test_post_json_sends_body_and_user_agent() -> None:
     assert req.headers["User-Agent"] == "jobhunt/0.1"
     assert req.headers["X-K"] == "v"
     assert req.content == b'{"a":1}'
+
+
+@respx.mock
+async def test_get_page_returns_final_url_after_redirect() -> None:
+    respx.get("https://a.test/careers").mock(
+        return_value=httpx.Response(301, headers={"Location": "https://b.test/jobs"})
+    )
+    respx.get("https://b.test/jobs").mock(return_value=httpx.Response(200, text="hello"))
+    async with client(FakeTime()) as c:
+        assert await c.get_page("https://a.test/careers") == ("https://b.test/jobs", "hello")

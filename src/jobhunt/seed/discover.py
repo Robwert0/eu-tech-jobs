@@ -3,7 +3,9 @@ import unicodedata
 from collections.abc import Mapping
 from html.parser import HTMLParser
 
-from jobhunt.ats.base import ADAPTERS, AtsAdapter, detect_board
+from pydantic import BaseModel
+
+from jobhunt.ats.base import ADAPTERS, AtsAdapter, detect_board, detect_system
 from jobhunt.enums import Ats
 from jobhunt.http import FetchError, PoliteClient
 from jobhunt.models import Board, Company
@@ -38,29 +40,45 @@ def _links(html: str) -> list[str]:
     return collector.links
 
 
+class Discovery(BaseModel):
+    board: Board | None
+    needs_adapter: str | None = None
+
+
+async def discover(
+    client: PoliteClient,
+    company: Company,
+    *,
+    adapters: Mapping[Ats, AtsAdapter] = ADAPTERS,
+) -> Discovery:
+    if company.board is not None:
+        return Discovery(board=company.board)
+    system: str | None = None
+    if company.careers_url:
+        try:
+            final_url, page = await client.get_page(company.careers_url)
+        except FetchError:
+            final_url, page = company.careers_url, ""
+        links = [final_url, *_links(page)]
+        for link in links:
+            board = detect_board(link, company.name)
+            if board is not None:
+                return Discovery(board=board)
+        system = next((s for s in map(detect_system, links) if s), None)
+    for slug in slug_candidates(company.name):
+        for adapter in adapters.values():
+            if not adapter.slug_guessable:
+                continue
+            found = await adapter.probe(client, slug)
+            if found is not None:
+                return Discovery(board=found.model_copy(update={"company": company.name}))
+    return Discovery(board=None, needs_adapter=system)
+
+
 async def discover_board(
     client: PoliteClient,
     company: Company,
     *,
     adapters: Mapping[Ats, AtsAdapter] = ADAPTERS,
 ) -> Board | None:
-    if company.board is not None:
-        return company.board
-    if company.careers_url:
-        try:
-            page = await client.get_text(company.careers_url)
-        except FetchError:
-            page = ""
-        for link in _links(page):
-            board = detect_board(link, company.name)
-            if board is not None:
-                return board
-    for slug in slug_candidates(company.name):
-        for adapter in adapters.values():
-            if not adapter.slug_guessable:
-                continue
-            board = await adapter.probe(client, slug)
-            if board is not None:
-                return board.model_copy(update={"company": company.name})
-
-    return None
+    return (await discover(client, company, adapters=adapters)).board

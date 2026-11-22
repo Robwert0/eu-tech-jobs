@@ -8,7 +8,7 @@ from jobhunt import db
 from jobhunt.crawl import crawl
 from jobhunt.http import FetchError, PoliteClient
 from jobhunt.mcp_server import mcp
-from jobhunt.seed.discover import discover_board
+from jobhunt.seed.discover import discover
 from jobhunt.seed.manual import load_companies
 
 
@@ -40,21 +40,28 @@ async def _discover(path: Path) -> int:
     companies = load_companies(path)
     conn = db.connect(db.db_path())
     found = 0
+    needs_adapter: dict[str, list[str]] = {}
     async with PoliteClient() as client:
         for company in companies:
             db.upsert_company(conn, company)
             try:
-                board = await discover_board(client, company)
+                result = await discover(client, company)
             except FetchError as e:
                 print(f"  {company.name}: error, try again later ({e})")
                 continue
-            if board is None:
-                print(f"  {company.name}: no Greenhouse/Lever/Ashby board found")
+            if result.board is None:
+                if result.needs_adapter:
+                    needs_adapter.setdefault(result.needs_adapter, []).append(company.name)
+                    print(f"  {company.name}: uses {result.needs_adapter} (no adapter yet)")
+                else:
+                    print(f"  {company.name}: no supported board found")
                 continue
-            db.upsert_board(conn, board)
+            db.upsert_board(conn, result.board)
             found += 1
-            print(f"  {company.name} -> {board.key}")
+            print(f"  {company.name} -> {result.board.key}")
     print(f"boards found: {found} of {len(companies)} companies")
+    for system, names in sorted(needs_adapter.items(), key=lambda kv: (-len(kv[1]), kv[0])):
+        print(f"needs adapter: {system} {len(names)} ({', '.join(names)})")
     return 0
 
 

@@ -60,3 +60,39 @@ def _greenhouse_slug(segments: list[str], query: str) -> str | None:
         values = parse_qs(query).get("for")
         return values[0] if values else None
     return segments[0]
+
+
+UNSUPPORTED_SYSTEMS: list[tuple[str, tuple[str, ...]]] = [
+    ("workday", ("myworkdayjobs.com", "myworkdaysite.com")),
+    (
+        "successfactors",
+        ("successfactors.com", "successfactors.eu", "jobs.sap.com", "sapsf.com", "sapsf.eu"),
+    ),
+    ("smartrecruiters", ("smartrecruiters.com",)),
+    ("workable", ("workable.com",)),
+    ("teamtailor", ("teamtailor.com",)),
+    ("recruitee", ("recruitee.com",)),
+    ("personio", ("jobs.personio.de", "jobs.personio.com")),
+    ("eightfold", ("eightfold.ai",)),
+    ("phenom", ("phenompeople.com",)),
+    ("icims", ("icims.com",)),
+    ("taleo", ("taleo.net",)),
+    ("avature", ("avature.net",)),
+    ("bamboohr", ("bamboohr.com",)),
+    ("jobvite", ("jobvite.com",)),
+]
+
+
+def _on_domain(host: str, domain: str) -> bool:
+    return host == domain or host.endswith("." + domain)
+
+
+def detect_system(url: str) -> str | None:
+    parts = urlsplit(url)
+    host = parts.hostname or ""
+    if _on_domain(host, "oraclecloud.com") and "CandidateExperience" in parts.path:
+        return "oracle"
+    for system, domains in UNSUPPORTED_SYSTEMS:
+        if any(_on_domain(host, d) for d in domains):
+            return system
+    return None
