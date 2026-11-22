@@ -7,13 +7,6 @@ from pydantic import BaseModel
 from jobhunt.enums import Ats, LocationClass
 
 
-class Company(BaseModel):
-    name: str
-    domain: str | None = None
-    careers_url: str | None = None
-    source: str
-
-
 class Board(BaseModel):
     company: str
     ats: Ats
@@ -23,6 +16,14 @@ class Board(BaseModel):
     @property
     def key(self) -> str:
         return f"{self.ats}:{self.slug}"
+
+
+class Company(BaseModel):
+    name: str
+    domain: str | None = None
+    careers_url: str | None = None
+    source: str
+    board: Board | None = None  # set when the board is known (e.g. from companies.json)
 
 
 class Office(BaseModel):

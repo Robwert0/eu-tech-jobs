@@ -16,7 +16,7 @@
   {"name": "Supabase"},
   {"name": "Sentry"},
   {"name": "Mozilla"},
-  {"name": "Automattic"},
+  {"name": "Automattic", "board": {"ats": "greenhouse", "slug": "automatticcareers"}},
   {"name": "Doist"},
   {"name": "Wise"},
 
@@ -52,5 +52,7 @@
   {"name": "ING Hubs Romania"},
 
   {"name": "Showpad"},
-  {"name": "Jobgether"}
+  {"name": "Jobgether"},
+
+  {"name": "Orange Romania", "board": {"ats": "softgarden", "slug": "cariere.orange.ro"}}
 ]

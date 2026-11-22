@@ -44,6 +44,8 @@ async def discover_board(
     *,
     adapters: Mapping[Ats, AtsAdapter] = ADAPTERS,
 ) -> Board | None:
+    if company.board is not None:  # configured explicitly: nothing to discover
+        return company.board
     if company.careers_url:
         try:
             page = await client.get_text(company.careers_url)
@@ -55,6 +57,8 @@ async def discover_board(
                 return board
     for slug in slug_candidates(company.name):
         for adapter in adapters.values():
+            if not adapter.slug_guessable:
+                continue
             board = await adapter.probe(client, slug)
             if board is not None:
                 return board.model_copy(update={"company": company.name})

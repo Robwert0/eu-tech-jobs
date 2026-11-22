@@ -4,6 +4,7 @@ from urllib.parse import parse_qs, urlsplit
 from jobhunt.ats.ashby import AshbyAdapter
 from jobhunt.ats.greenhouse import GreenhouseAdapter
 from jobhunt.ats.lever import LeverAdapter
+from jobhunt.ats.softgarden import SoftgardenAdapter
 from jobhunt.enums import Ats
 from jobhunt.http import PoliteClient
 from jobhunt.models import Board, Job
@@ -12,6 +13,7 @@ ADAPTERS: dict[Ats, AtsAdapter] = {
     Ats.ashby: AshbyAdapter(),
     Ats.lever: LeverAdapter(),
     Ats.greenhouse: GreenhouseAdapter(),
+    Ats.softgarden: SoftgardenAdapter(),
 }
 GREENHOUSE_HOSTS = {
     "boards.greenhouse.io",
@@ -24,6 +26,9 @@ GREENHOUSE_HOSTS = {
 
 class AtsAdapter(Protocol):
     ats: Ats
+    # True when a board slug can be guessed from a company name (Greenhouse, Lever, Ashby).
+    # False when the "slug" is a host or tenant id: probing guesses would hit made-up domains.
+    slug_guessable: bool
 
     async def fetch_jobs(self, client: PoliteClient, board: Board) -> list[Job]: ...
 

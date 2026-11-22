@@ -16,6 +16,7 @@ def _url(host: str | None, slug: str) -> str:
 
 class GreenhouseAdapter:
     ats = Ats.greenhouse
+    slug_guessable = True
 
     async def fetch_jobs(self, client: PoliteClient, board: Board) -> list[Job]:
         data = await client.get_json(f"{_url(board.host, board.slug)}", content="true")

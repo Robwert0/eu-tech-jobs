@@ -12,6 +12,7 @@ API = "https://api.ashbyhq.com/posting-api/job-board"
 
 class AshbyAdapter:
     ats = Ats.ashby
+    slug_guessable = True
 
     async def fetch_jobs(self, client: PoliteClient, board: Board) -> list[Job]:
         data = await client.get_json(f"{API}/{board.slug}", includeCompensation="false")

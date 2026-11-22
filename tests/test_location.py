@@ -124,3 +124,11 @@ def test_cedilla_spellings_are_romania() -> None:
 def test_remote_in_one_european_country(raw: str, country: str, cls: L) -> None:
     office = classify(raw)
     assert (office.country, office.location_class) == (country, cls)
+
+
+@pytest.mark.parametrize(
+    "raw",
+    ["Arad", "Deva", "Tulcea", "Târgu Mureș", "Baia Mare", "Pitești", "Alba Iulia", "Suceava"],
+)
+def test_romanian_county_seats(raw: str) -> None:
+    assert classify(raw).location_class == L.romania

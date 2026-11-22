@@ -175,3 +175,39 @@ def test_load_companies_rejects_duplicates(tmp_path: Path) -> None:
     path.write_text(json.dumps([{"name": "Linear"}, {"name": "Linear"}]))
     with pytest.raises(ValueError, match="Linear"):
         load_companies(path)
+
+
+# --- explicit boards and non-guessable systems ---------------------------------------------
+
+
+async def test_explicit_board_is_used_without_any_request() -> None:
+    board = Board(company="Orange Romania", ats=Ats.softgarden, slug="cariere.orange.ro")
+    company = Company(name="Orange Romania", source="manual", board=board)
+    async with fast_client() as c:  # no respx mock: any request would fail the test
+        assert await discover_board(c, company) == board
+
+
+@respx.mock
+async def test_slug_guessing_skips_systems_whose_slugs_are_hosts() -> None:
+    """softgarden's 'slug' is a website host: guessing would request made-up domains."""
+    all_probes_404()  # only Greenhouse/Lever/Ashby are mocked; a softgarden probe would raise
+    async with fast_client() as c:
+        assert await discover_board(c, Company(name="Acme", source="manual")) is None
+
+
+def test_load_companies_with_explicit_board(tmp_path: Path) -> None:
+    path = tmp_path / "companies.json"
+    path.write_text(
+        json.dumps(
+            [
+                {
+                    "name": "Orange Romania",
+                    "board": {"ats": "softgarden", "slug": "cariere.orange.ro"},
+                }
+            ]
+        )
+    )
+    [company] = load_companies(path)
+    assert company.board == Board(
+        company="Orange Romania", ats=Ats.softgarden, slug="cariere.orange.ro"
+    )

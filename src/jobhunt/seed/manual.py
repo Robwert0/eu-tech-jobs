@@ -1,17 +1,20 @@
 import json
 from pathlib import Path
 
-from jobhunt.models import Company
+from jobhunt.models import Board, Company
 
 
 def load_companies(path: Path) -> list[Company]:
-    jobs = json.loads(path.read_text())
+    entries = json.loads(path.read_text())
     seen = set()
     companies = []
-    for job in jobs:
-        if job["name"] in seen:
-            raise ValueError(f"Duplicate company in {path}: {job['name']}")
-        seen.add(job["name"])
-        companies.append(Company(**job, source="manual"))
+    for entry in entries:
+        if entry["name"] in seen:
+            raise ValueError(f"Duplicate company in {path}: {entry['name']}")
+        seen.add(entry["name"])
+        fields = {**entry, "source": "manual"}
+        if "board" in entry:  # explicit board: {"ats": ..., "slug": ..., "host"?: ...}
+            fields["board"] = Board(company=entry["name"], **entry["board"])
+        companies.append(Company(**fields))
 
     return companies

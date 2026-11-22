@@ -313,3 +313,46 @@ async def test_broken_posting_is_skipped_not_the_whole_board(
     async with fast_client() as c:
         jobs = await ADAPTERS[ats].fetch_jobs(c, Board(company="B", ats=ats, slug="b"))
     assert len(jobs) == 2  # postings 1 and 3 still parsed
+
+
+# --- softgarden (Orange Romania): schema.org JobPosting DataFeed -----------------------------
+
+
+@respx.mock
+async def test_softgarden_parses_feed() -> None:
+    respx.get("https://cariere.orange.ro/jobs.feed.json").mock(
+        return_value=httpx.Response(200, json=fixture("softgarden_feed.json"))
+    )
+    board = Board(company="Orange Romania", ats=Ats.softgarden, slug="cariere.orange.ro")
+    async with fast_client() as c:
+        jobs = await ADAPTERS[Ats.softgarden].fetch_jobs(c, board)
+
+    assert [j.title for j in jobs] == [
+        "Reprezentant Vanzari Orange Shop Deva",  # invisible zero-width space stripped
+        "Konsultant / Konsultantka Orange - firmowy salon Smart Store w Warszawie (Arkadia)",
+        "Site Reliability Engineer",
+    ]
+    sre = jobs[2]
+    assert sre.id == "softgarden:cariere.orange.ro:67898767"
+    assert sre.url.startswith("https://skk.erecruiter.pl/Offer.aspx?oid=5021211")
+    assert sre.apply_url == sre.url
+    # Polish country names in the feed are translated, so the classifier understands them
+    assert [o.raw for o in sre.offices] == ["Bucharest, Romania"]
+    assert sre.offices[0].location_class == LocationClass.romania
+    assert jobs[0].offices[0].location_class == LocationClass.romania  # Deva
+    assert jobs[1].offices[0].raw == "Warszawa, Poland"
+    assert jobs[1].offices[0].location_class == LocationClass.other
+    assert sre.posted_at == datetime.fromisoformat("2026-10-19T12:14:37.000+00:00")
+
+
+@respx.mock
+async def test_softgarden_probe() -> None:
+    respx.get("https://cariere.orange.ro/jobs.feed.json").mock(
+        return_value=httpx.Response(200, json={"dataFeedElement": []})
+    )
+    respx.get("https://nope.example/jobs.feed.json").mock(return_value=httpx.Response(404))
+    async with fast_client() as c:
+        assert await ADAPTERS[Ats.softgarden].probe(c, "cariere.orange.ro") == Board(
+            company="cariere.orange.ro", ats=Ats.softgarden, slug="cariere.orange.ro"
+        )
+        assert await ADAPTERS[Ats.softgarden].probe(c, "nope.example") is None

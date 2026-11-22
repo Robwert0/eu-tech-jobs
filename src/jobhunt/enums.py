@@ -9,6 +9,7 @@ class Ats(StrEnum):
     greenhouse = "greenhouse"
     lever = "lever"
     ashby = "ashby"
+    softgarden = "softgarden"
     other = "other"
 
 
