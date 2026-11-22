@@ -194,3 +194,14 @@ async def test_stored_job_without_state_gets_found(conn: Connection, client: Pol
     report = await run(conn, client, {"a": [job("a", "1")]}, T2)
     assert db.get_state(conn, "greenhouse:a:1") == AppState.found
     assert report.new_jobs == []  # not new: it was already stored
+
+
+async def test_remote_country_jobs_kept_unless_other_language(
+    conn: Connection, client: PoliteClient
+) -> None:
+    add_boards(conn, "a")
+    english = job("a", "1", "Remote Germany")
+    german = job("a", "2", "Remote Germany")
+    german.description = "Fluent German is required."
+    report = await run(conn, client, {"a": [english, german]}, T1)
+    assert report.new_jobs == ["greenhouse:a:1"]

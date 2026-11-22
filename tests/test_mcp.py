@@ -198,3 +198,11 @@ def test_find_jobs_query_matches_all_words_anywhere(conn: Connection) -> None:
 def test_find_jobs_country_case_insensitive(conn: Connection) -> None:
     store(conn, make_job("ro", location="Cluj-Napoca"))
     assert ids(search_jobs(conn, country="ro", now=NOW)) == ["greenhouse:acme:ro"]
+
+
+def test_summary_shows_best_location_class(conn: Connection) -> None:
+    job = make_job("x")
+    job.offices = [classify("Remote Germany"), classify("Remote"), classify("Bucharest")]
+    store(conn, job)
+    [summary] = search_jobs(conn, now=NOW)
+    assert summary.location_class == "romania"  # best for Robert, not merely the first kept

@@ -8,6 +8,15 @@ from pydantic import BaseModel
 from jobhunt.enums import KEPT_CLASSES, LocationClass
 from jobhunt.models import Job
 
+# Most useful for Robert first: on-site Romania ... remote tied to another country last.
+BEST_FIRST = [
+    LocationClass.romania,
+    LocationClass.remote_romania,
+    LocationClass.remote_europe,
+    LocationClass.remote_global,
+    LocationClass.remote_europe_country,
+]
+
 
 class JobSummary(BaseModel):
     id: str
@@ -75,7 +84,10 @@ def _best_first(match: tuple[Job, str | None, int | None]) -> tuple[bool, int, b
 
 
 def _summary(job: Job, state: str | None, score: int | None) -> JobSummary:
-    kept = [o.location_class for o in job.offices if o.location_class in KEPT_CLASSES]
+    kept = sorted(
+        (o.location_class for o in job.offices if o.location_class in KEPT_CLASSES),
+        key=BEST_FIRST.index,
+    )
     return JobSummary(
         id=job.id,
         title=job.title,

@@ -8,8 +8,8 @@ from pydantic import BaseModel
 from jobhunt import db
 from jobhunt.ats.base import ADAPTERS, AtsAdapter
 from jobhunt.enums import AppState, Ats
+from jobhunt.filters import keep_job
 from jobhunt.http import FetchError, PoliteClient
-from jobhunt.location import keep
 from jobhunt.models import Board, Job
 
 MAX_CONCURRENT_BOARDS = 8
@@ -50,7 +50,7 @@ async def crawl(
                 report.boards_failed[board.key] = f"{type(result).__name__}: {result}"
             continue
         report.boards_ok += 1
-        kept = [job for job in result if keep(job.offices)]
+        kept = [job for job in result if keep_job(job)]
         for job in kept:
             is_new = db.upsert_job(conn, job, now)
             # Not `if is_new`: a crash after upsert_job would otherwise leave the job stateless.

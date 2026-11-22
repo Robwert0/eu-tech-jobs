@@ -17,6 +17,9 @@ EU_COUNTRIES: frozenset[str] = frozenset(
     "AT BE BG HR CY CZ DK EE FI FR DE GR HU IE IT LV LT LU MT NL PL PT RO SK SI ES SE".split()
 )
 EUROPE_NON_EU: frozenset[str] = frozenset("GB CH NO IS LI".split())
+# Countries a Romanian citizen may live and work in without a visa: EU + EEA + Switzerland.
+# Not GB: since Brexit, "Remote - UK" effectively requires UK right to work.
+FREE_MOVEMENT: frozenset[str] = EU_COUNTRIES | frozenset("NO IS LI CH".split())
 
 REMOTE = ["remote", "anywhere", "worldwide", "distributed", "work from home", "wfh", "virtual"]
 EUROPE_REGION = ["europe", "european", "emea", "eu", "cet", "european union"]
@@ -261,6 +264,8 @@ def classify(raw: str) -> Office:
 
     if country == "RO":
         cls = LocationClass.remote_romania if remote else LocationClass.romania
+    elif remote and country in FREE_MOVEMENT and not _has(text, ["hybrid"]):
+        cls = LocationClass.remote_europe_country  # hybrid means office days: stays other
     elif country is not None or not remote:
         cls = LocationClass.other
     elif set(re.findall(r"[a-z0-9]+", text)) - SCOPE_WORDS:

@@ -18,13 +18,16 @@ def find_jobs(
     """Search open tech jobs that can be done from Romania.
 
     Jobs come from company job boards (Greenhouse, Lever, Ashby) and are already limited to
-    on-site Romania, remote within Romania, remote within Europe, or remote worldwide.
-    Results are sorted by fit score (best first; unscored last), then by newest posting.
+    on-site Romania, remote within Romania, remote within Europe, remote worldwide, or remote
+    tied to one other EU/EEA/Swiss country with no language requirement besides English
+    ("remote-europe-country": the employer may require living there or a contractor setup,
+    so mention that when presenting these). Results are sorted by fit score (best first;
+    unscored last), then by newest posting.
 
     Args:
         query: words to find in the job title or description, e.g. "python" or "backend".
         location_class: keep only these location types; any of "romania", "remote-romania",
-            "remote-europe", "remote-global".
+            "remote-europe", "remote-global", "remote-europe-country".
         country: ISO-2 country code of an office, e.g. "RO".
         posted_since_days: only jobs posted within this many days.
         min_score: only jobs whose fit score (0-100) is at least this.

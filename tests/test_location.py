@@ -19,7 +19,7 @@ CASES = [
     ("Worldwide (Remote)", None, L.remote_global),
     ("Remote - US", "US", L.other),
     ("Remote, United States", "US", L.other),
-    ("Remote - Germany", "DE", L.other),
+    ("Remote - Germany", "DE", L.remote_europe_country),  # changed 2026-11-22 (Robert)
     ("Berlin, Germany", "DE", L.other),
     ("New York, NY", "US", L.other),
     ("", None, L.other),
@@ -95,3 +95,28 @@ def test_remote_europe_phrasings(raw: str) -> None:
 def test_cedilla_spellings_are_romania() -> None:
     assert classify("Iaşi, România").location_class == L.romania
     assert classify("Timişoara").location_class == L.romania
+
+
+# Decision 2026-11-22: remote tied to ONE other European country is kept as its own class,
+# remote-europe-country (EU + EEA + CH — free movement for Romanians). UK excluded: since Brexit
+# a Romanian needs a visa, so "Remote - UK" effectively requires UK right to work.
+@pytest.mark.parametrize(
+    ("raw", "country", "cls"),
+    [
+        ("Remote Germany", "DE", L.remote_europe_country),
+        ("Germany (Remote)", "DE", L.remote_europe_country),
+        ("Remote, Poland", "PL", L.remote_europe_country),
+        ("Remote - Vienna, Austria", "AT", L.remote_europe_country),
+        ("Remote (Sweden)", "SE", L.remote_europe_country),
+        ("Remote - Zurich", "CH", L.remote_europe_country),
+        ("Remote - London, UK", "GB", L.other),
+        ("Remote - Manchester", "GB", L.other),
+        ("Remote - Hybrid (UK)", "GB", L.other),
+        ("Remote - Hybrid (Germany)", "DE", L.other),  # hybrid means office days
+        ("Berlin, Germany", "DE", L.other),  # on-site stays other
+        ("Remote, United States", "US", L.other),
+    ],
+)
+def test_remote_in_one_european_country(raw: str, country: str, cls: L) -> None:
+    office = classify(raw)
+    assert (office.country, office.location_class) == (country, cls)
