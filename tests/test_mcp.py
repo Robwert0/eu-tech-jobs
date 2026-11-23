@@ -474,3 +474,55 @@ async def test_mcp_record_external_job_saves_it(
     assert not result.is_error
     assert result.structured_content["id"] == "external:levels.fyi:lv-1"
     assert result.structured_content["state"] == "found"
+
+
+async def review_text(**arguments: str) -> str:
+    result = await mcp.get_prompt("review_jobs", arguments or None)
+    return "\n".join(m.content.text for m in result.messages)
+
+
+async def test_mcp_lists_review_jobs_prompt() -> None:
+    prompts = {p.name: p for p in await mcp.list_prompts()}
+    assert "review_jobs" in prompts
+    prompt = prompts["review_jobs"]
+    assert {a.name for a in prompt.arguments or []} == {"days", "limit"}
+    assert all(not a.required for a in prompt.arguments or [])
+    assert prompt.description
+
+
+async def test_review_jobs_prompt_covers_the_session() -> None:
+    text = await review_text()
+    for step in (
+        "get_profile",
+        "find_jobs",
+        "new_only",
+        "get_job",
+        "record_decision",
+        "my_applications",
+        "Levels.fyi",
+        "record_external_job",
+    ):
+        assert step in text, step
+
+
+async def test_review_jobs_prompt_carries_the_rules() -> None:
+    text = await review_text()
+    for rule in (
+        "must",
+        "nice",
+        "low_fit",
+        "60",
+        "remote-europe-country",
+        "remote-needs-visa",
+        "never invent",
+        "answers",
+        "confirm",
+    ):
+        assert rule.lower() in text.lower(), rule
+    assert "round(100" in text
+
+
+async def test_review_jobs_prompt_uses_its_arguments() -> None:
+    text = await review_text(days="7", limit="5")
+    assert "posted_since_days=7" in text
+    assert "limit=5" in text

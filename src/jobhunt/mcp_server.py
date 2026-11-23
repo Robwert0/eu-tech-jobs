@@ -99,7 +99,7 @@ def get_job(job_id: str) -> JobDetail:
         "Record Robert's decision on a job: shortlist (worth applying), skip (not a fit; "
         "reason required, e.g. low_fit, language, location), applied, or dismiss. Include "
         "the fit score (0-100) when you scored the job. Record applied only after Robert "
-        "confirms he submitted the application."
+        "confirms the application was submitted."
     )
 )
 def record_decision(
@@ -174,3 +174,63 @@ def record_external_job(
         )
     finally:
         conn.close()
+
+
+REVIEW_JOBS = """\
+You are helping Robert review new job postings. Work through these steps in order.
+
+1. Profile. Call get_profile once. Its facts are the only things you may claim about Robert;
+   its answers are the only source for authorisation, notice period, start date, location,
+   salary and contract questions. If get_profile fails, stop and tell Robert what is missing.
+
+2. New crawled jobs. Call find_jobs(new_only=true, posted_since_days={days}, limit={limit}).
+   For each result call get_job to read the full posting.
+
+3. Levels.fyi. If the Levels.fyi search-jobs tool is available, search it for Robert's roles
+   (from the profile) in Romania and remote in Europe. Drop results already in the jobhunt
+   database (same company and title). Read promising ones with the Levels.fyi get-job tool.
+   If the tool is not available, say so in one line and continue.
+
+4. Score every job with this rubric. List the posting's requirements as must or nice. Mark each
+   met, partial or missing, citing the fact ids from get_profile that back it; a requirement
+   with no backing fact is missing. Weights: must = 2, nice = 1; met = 1, partial = 0.5,
+   missing = 0. Score = round(100 * sum(weight * value) / sum(weight)). There is no seniority
+   penalty: judge years-of-experience requirements against the real dates in the facts.
+
+5. Below 50: record_decision(decision="skip", reason="low_fit", score=...) without asking.
+   A posting that requires a language other than English or Romanian: skip with
+   reason="language".
+
+6. Present the rest as one table, best score first: source (jobhunt or Levels.fyi), title,
+   company, location class, score, top two gaps, link. Under the table add a short note for
+   each remote-europe-country job (the employer may want residence in that country or a B2B
+   contract; Robert has a Romanian company) and each remote-needs-visa job (say which signal:
+   visa sponsorship, contractors accepted, or hiring abroad).
+
+7. Before Robert shortlists a job, call my_applications(company=<that company>, since_days=60).
+   If Robert applied there in the last 60 days, say so before recording anything.
+
+8. When Robert picks jobs: for a Levels.fyi job first call record_external_job
+   (source="levels.fyi", the posting's own id as external_id). Then
+   record_decision(decision="shortlist", score=...). For jobs Robert rejects, record "dismiss"
+   with the reason given.
+
+9. Tailor a CV or cover letter only when Robert asks. Select, reorder and rephrase Robert's facts
+   and mirror the posting's wording only for things Robert actually did. Never invent a skill,
+   number, date, employer, title or certification. Form answers about authorisation, notice,
+   start date, salary or relocation come only from the answers in get_profile; if one is
+   missing, ask Robert.
+
+10. Record decision="applied" only after Robert confirms the application was submitted.
+"""
+
+
+@mcp.prompt(
+    description=(
+        "Review new jobs with Robert: read Robert's profile, fetch never-reviewed jobs (plus "
+        "Levels.fyi results), score them with the fit rubric, skip weak ones, present the "
+        "rest and record Robert's decisions."
+    )
+)
+def review_jobs(days: int = 3, limit: int = 10) -> str:
+    return REVIEW_JOBS.format(days=days, limit=limit)
