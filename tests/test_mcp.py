@@ -2,7 +2,9 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from sqlite3 import Connection
 
+import httpx
 import pytest
+import respx
 from mcp.server.mcpserver.exceptions import ToolError
 
 from jobhunt import db
@@ -561,3 +563,59 @@ async def test_record_decision_offers_auto_apply() -> None:
     tool = tools["record_decision"]
     assert "auto_apply" in str(tool.input_schema["properties"]["decision"])
     assert "auto_apply" in (tool.description or "")
+
+
+async def test_mcp_lists_job_questions_tool() -> None:
+    tools = {t.name: t for t in await mcp.list_tools()}
+    assert "job_questions" in tools
+    assert set(tools["job_questions"].input_schema["properties"]) == {"job_id"}
+
+
+@respx.mock
+async def test_mcp_job_questions_returns_only_custom_questions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "live.db"
+    c = db.connect(path)
+    db.upsert_board(c, BOARD)
+    store(c, make_job("a"))
+    c.close()
+    monkeypatch.setenv("JOBHUNT_DB", str(path))
+    fixture = Path(__file__).parent / "fixtures" / "forms" / "greenhouse_questions.json"
+    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs/a").mock(
+        return_value=httpx.Response(200, text=fixture.read_text())
+    )
+
+    result = await mcp.call_tool("job_questions", {"job_id": "greenhouse:acme:a"})
+
+    assert not result.is_error
+    names = [f["name"] for f in result.structured_content["result"]]
+    assert "question_37369962002" in names
+    assert "email" not in names
+    assert "question_37369956002" not in names
+
+
+async def test_mcp_job_questions_unknown_job_is_a_clear_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("JOBHUNT_DB", str(tmp_path / "empty.db"))
+    with pytest.raises(ToolError, match="greenhouse:acme:nope"):
+        await mcp.call_tool("job_questions", {"job_id": "greenhouse:acme:nope"})
+
+
+@respx.mock
+async def test_mcp_job_questions_unreadable_form_is_a_clear_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "live.db"
+    c = db.connect(path)
+    db.upsert_board(c, BOARD)
+    store(c, make_job("gone"))
+    c.close()
+    monkeypatch.setenv("JOBHUNT_DB", str(path))
+    respx.get("https://boards-api.greenhouse.io/v1/boards/acme/jobs/gone").mock(
+        return_value=httpx.Response(404)
+    )
+
+    with pytest.raises(ToolError, match="greenhouse:acme:gone"):
+        await mcp.call_tool("job_questions", {"job_id": "greenhouse:acme:gone"})

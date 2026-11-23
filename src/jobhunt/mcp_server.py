@@ -2,15 +2,25 @@ from datetime import datetime
 
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
+from playwright.async_api import Error as PlaywrightError
 
 from jobhunt import db
+from jobhunt.apply.forms import UnsupportedForm, custom_questions, job_fields
 from jobhunt.decisions import Decision, DecisionError
 from jobhunt.decisions import record_decision as save_decision
 from jobhunt.decisions import record_external_job as save_external_job
 from jobhunt.documents import save_documents as write_documents
-from jobhunt.models import ApplicationRow, Documents, JobDetail, JobSummary, Profile
+from jobhunt.http import FetchError
+from jobhunt.models import (
+    ApplicationRow,
+    Documents,
+    FormField,
+    JobDetail,
+    JobSummary,
+    Profile,
+)
 from jobhunt.profile import load_profile, profile_dir
-from jobhunt.queries import JobNotFound, list_applications, search_jobs
+from jobhunt.queries import JobNotFound, list_applications, load_job, search_jobs
 from jobhunt.queries import get_job as fetch_job
 
 mcp = MCPServer("jobhunt")
@@ -241,7 +251,8 @@ def review_jobs(days: int = 3, limit: int = 10) -> str:
 @mcp.tool(
     description=(
         "Save the CV and cover letter you tailored for a job (Markdown), plus answers to the "
-        "application form's own questions, as files under data/applications/<job>/ with PDFs "
+        "application form's own questions (keyed by the name job_questions returned), as "
+        "files under data/applications/<job>/ with PDFs "
         "ready to upload. Use only Robert's facts from get_profile. Saving again replaces the "
         "previous version. Needed before record_decision(auto_apply)."
     )
@@ -260,3 +271,29 @@ async def save_documents(
     finally:
         conn.close()
     return await write_documents(job_id, cv_markdown, cover_letter_markdown, answers)
+
+
+@mcp.tool(
+    description=(
+        "The application form's own questions for a job on Greenhouse, Lever or Ashby: name, "
+        "label, type, required and options. Standard fields (name, email, phone, LinkedIn, "
+        "GitHub, resume, cover letter, location) are left out because they come from the "
+        "profile and the saved documents. Draft an answer to each from Robert's facts and "
+        "answers only, ask Robert when one is missing, then pass them to save_documents keyed "
+        "by name. Other job systems: Robert applies manually."
+    )
+)
+async def job_questions(job_id: str) -> list[FormField]:
+    conn = db.connect(db.db_path())
+    try:
+        job = load_job(conn, job_id)
+    except JobNotFound as e:
+        raise ToolError(str(e)) from e
+    finally:
+        conn.close()
+    try:
+        return custom_questions(await job_fields(job))
+    except UnsupportedForm as e:
+        raise ToolError(str(e)) from e
+    except (FetchError, PlaywrightError) as e:
+        raise ToolError(f"Could not read the application form for {job_id}: {e}") from e

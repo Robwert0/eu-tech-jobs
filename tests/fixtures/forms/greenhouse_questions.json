@@ -1,0 +1,262 @@
+{
+ "id": 8638232002,
+ "title": "AI Transformation Owner, CRO",
+ "questions": [
+  {
+   "description": null,
+   "label": "First Name",
+   "required": true,
+   "fields": [
+    {
+     "name": "first_name",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Last Name",
+   "required": true,
+   "fields": [
+    {
+     "name": "last_name",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Email",
+   "required": true,
+   "fields": [
+    {
+     "name": "email",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Phone",
+   "required": false,
+   "fields": [
+    {
+     "name": "phone",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Resume/CV",
+   "required": true,
+   "fields": [
+    {
+     "name": "resume",
+     "type": "input_file",
+     "values": []
+    },
+    {
+     "name": "resume_text",
+     "type": "textarea",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Cover Letter",
+   "required": false,
+   "fields": [
+    {
+     "name": "cover_letter",
+     "type": "input_file",
+     "values": []
+    },
+    {
+     "name": "cover_letter_text",
+     "type": "textarea",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "LinkedIn Profile",
+   "required": false,
+   "fields": [
+    {
+     "name": "question_37369956002",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "What's the name you'd prefer us to use throughout the interview process?",
+   "required": false,
+   "fields": [
+    {
+     "name": "question_37369957002",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Please choose the country in which you are located.",
+   "required": false,
+   "fields": [
+    {
+     "name": "question_37369958002",
+     "type": "multi_value_single_select",
+     "values": [
+      {
+       "label": "Afghanistan",
+       "value": 248806000002
+      },
+      {
+       "label": "Albania",
+       "value": 248806001002
+      },
+      {
+       "label": "Algeria",
+       "value": 248806002002
+      },
+      {
+       "label": "Andorra",
+       "value": 248806003002
+      },
+      {
+       "label": "Romania",
+       "value": 248806143002
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Are you subject to any employment agreements and/or post-employment restrictions with your current employer or a past employer?",
+   "required": true,
+   "fields": [
+    {
+     "name": "question_37369959002",
+     "type": "multi_value_single_select",
+     "values": [
+      {
+       "label": "Yes",
+       "value": 1
+      },
+      {
+       "label": "No",
+       "value": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "It is important to us to create an accessible and inclusive interview experience. Please let us know if there are any adjustments we can make to assist you during the hiring and interview process.",
+   "required": false,
+   "fields": [
+    {
+     "name": "question_37369960002",
+     "type": "input_text",
+     "values": []
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Will you now or in the future require sponsorship for a visa to remain in your current location?",
+   "required": true,
+   "fields": [
+    {
+     "name": "question_37369961002",
+     "type": "multi_value_single_select",
+     "values": [
+      {
+       "label": "No",
+       "value": 248806198002
+      },
+      {
+       "label": "Yes, Netherlands Highly Skilled Migrant Visa",
+       "value": 248806199002
+      },
+      {
+       "label": "Yes, Ireland Highly Skilled Worker Visa",
+       "value": 248806200002
+      },
+      {
+       "label": "Yes, EU Blue Card",
+       "value": 248806201002
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "Have you previously worked at or consulted for GitLab?",
+   "required": true,
+   "fields": [
+    {
+     "name": "question_37369962002",
+     "type": "multi_value_single_select",
+     "values": [
+      {
+       "label": "Yes",
+       "value": 1
+      },
+      {
+       "label": "No",
+       "value": 0
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "description": null,
+   "label": "What is your current country of residence?",
+   "required": true,
+   "fields": [
+    {
+     "name": "question_37369963002",
+     "type": "multi_value_single_select",
+     "values": [
+      {
+       "label": "Afghanistan",
+       "value": 248806205002
+      },
+      {
+       "label": "Albania",
+       "value": 248806206002
+      },
+      {
+       "label": "Algeria",
+       "value": 248806207002
+      },
+      {
+       "label": "Andorra",
+       "value": 248806208002
+      },
+      {
+       "label": "Romania",
+       "value": 248806347002
+      }
+     ]
+    }
+   ]
+  }
+ ],
+ "location_questions": []
+}

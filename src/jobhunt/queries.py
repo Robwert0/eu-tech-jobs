@@ -64,6 +64,13 @@ def search_jobs(
     return [_summary(job, state, score) for job, state, score in matches[:limit]]
 
 
+def load_job(conn: sqlite3.Connection, job_id: str) -> Job:
+    row = conn.execute("SELECT json FROM jobs WHERE id = ?", (job_id,)).fetchone()
+    if row is None:
+        raise JobNotFound(f"{job_id} was not found.")
+    return Job.model_validate_json(row[0])
+
+
 def get_job(conn: sqlite3.Connection, job_id: str) -> JobDetail:
     row = conn.execute(
         """SELECT j.json, a.state, a.reason, a.score, j.closed_at

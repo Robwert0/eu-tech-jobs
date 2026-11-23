@@ -91,3 +91,14 @@ class Documents(BaseModel):
     cv_pdf: Path
     cover_letter_pdf: Path
     answers: dict[str, str]
+
+
+FieldType = Literal["text", "textarea", "email", "tel", "file", "select", "checkbox", "radio"]
+
+
+class FormField(BaseModel):
+    name: str
+    label: str
+    type: FieldType
+    required: bool
+    options: list[str] = []
