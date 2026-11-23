@@ -299,3 +299,28 @@ async def test_mcp_get_job_unknown_id_is_a_clear_error(
     monkeypatch.setenv("JOBHUNT_DB", str(tmp_path / "empty.db"))
     with pytest.raises(ToolError, match="greenhouse:acme:nope"):
         await mcp.call_tool("get_job", {"job_id": "greenhouse:acme:nope"})
+
+
+async def test_mcp_lists_record_decision_tool() -> None:
+    tools = {t.name: t for t in await mcp.list_tools()}
+    assert "record_decision" in tools
+    tool = tools["record_decision"]
+    assert set(tool.input_schema["properties"]) == {"job_id", "decision", "score", "reason"}
+    description = (tool.description or "").lower()
+    assert "applied" in description and "confirm" in description
+
+
+async def test_mcp_record_decision_forbidden_move_is_a_clear_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "live.db"
+    c = db.connect(path)
+    db.upsert_board(c, BOARD)
+    store(c, make_job("a"))
+    db.set_state(c, "greenhouse:acme:a", AppState.dismissed, reason="no")
+    c.close()
+    monkeypatch.setenv("JOBHUNT_DB", str(path))
+    with pytest.raises(ToolError, match="dismissed"):
+        await mcp.call_tool(
+            "record_decision", {"job_id": "greenhouse:acme:a", "decision": "applied"}
+        )
