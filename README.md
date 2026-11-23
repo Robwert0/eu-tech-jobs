@@ -352,7 +352,7 @@ src/jobhunt/
 scripts/daily.sh              the unattended daily run · logs to data/logs/
 tests/                        mirrors src/ · fixtures/ are recorded real responses
 docs/design.md                goals, trade-offs and decisions
-docs/learning/                interview-ready notes: MCP · crawling · state machine
+docs/learning/                interview-ready notes: MCP · crawling · state machine · agent tools
 ```
 
 ---
