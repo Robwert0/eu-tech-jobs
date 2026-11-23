@@ -113,3 +113,4 @@ class SubmitResult(BaseModel):
     screenshot: Path
     confirmation_text: str | None = None
     blocked: str | None = None
+    skipped: list[str] = []

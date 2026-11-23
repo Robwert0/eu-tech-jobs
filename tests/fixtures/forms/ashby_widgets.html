@@ -1,0 +1,49 @@
+<!doctype html><html><body>
+<div id="form">
+<div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry" data-field-path="_systemfield_name"><label class="_heading_f7cvd_52 _required_f7cvd_91 ashby-application-form-question-title" for="_systemfield_name">Name</label><div><input placeholder="Type here..." name="_systemfield_name" required="" id="_systemfield_name" type="text" class="ashby-application-form-input-text" value=""></div></div>
+<div data-field-path="country-q"><label class="_heading_f7cvd_52 _required_f7cvd_91 ashby-application-form-question-title" for="country-q">In which country are you currently located?</label><div class="_inputContainer_d7ago_28"><input class="ashby-application-form-input-autocomplete" placeholder="Start typing..." aria-autocomplete="list" aria-expanded="false" aria-haspopup="listbox" role="combobox" value=""><button class="_toggleButton_d7ago_32" type="button">v</button></div></div>
+<div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry" data-field-path="work-q"><label class="_heading_f7cvd_52 _required_f7cvd_91 ashby-application-form-question-title" for="work-q">Are you legally authorized to work in that location?</label><div class="ashby-application-form-input-yesno"><button class="ashby-application-form-input-yesno-option" type="button" aria-pressed="false" data-option="yes">Yes</button><button class="ashby-application-form-input-yesno-option" type="button" aria-pressed="false" data-option="no">No</button><input type="checkbox" tabindex="-1" name="work-q" style="position: absolute; opacity: 0; width: 1px; height: 1px;"></div></div>
+<div data-field-path="english-q"><fieldset class="_fieldEntry_1e3gg_28 ashby-application-form-input-radio-group"><label class="_heading_f7cvd_52 _required_f7cvd_91 ashby-application-form-question-title" for="english-q">What is your English proficiency?</label><div class="ashby-application-form-input-radio-group-option"><span><span class="_circle_132c8_77"></span><input type="radio" id="entry_english-q-labeled-radio-0" name="entry_english-q"></span><label for="entry_english-q-labeled-radio-0">Native/Bilingual</label></div><div class="ashby-application-form-input-radio-group-option"><span><span class="_circle_132c8_77"></span><input type="radio" id="entry_english-q-labeled-radio-1" name="entry_english-q"></span><label for="entry_english-q-labeled-radio-1">C2 - Proficient/Fluent</label></div></fieldset></div>
+<div data-field-path="tools-q"><fieldset class="_fieldEntry_1e3gg_28 ashby-application-form-input-checkbox-group"><label class="_heading_f7cvd_52  ashby-application-form-question-title" for="tools-q">Which of the following are you familiar with?</label><div class="ashby-application-form-input-checkbox-group-option"><span><input type="checkbox" id="entry_tools-q-labeled-checkbox-0" name="Code review"></span><label for="entry_tools-q-labeled-checkbox-0">Code review</label></div><div class="ashby-application-form-input-checkbox-group-option"><span><input type="checkbox" id="entry_tools-q-labeled-checkbox-1" name="MDM tools"></span><label for="entry_tools-q-labeled-checkbox-1">MDM tools</label></div></fieldset></div>
+<button class="ashby-application-form-submit-button" type="button" onclick="window.clicked = true"><span>Submit Application</span></button>
+</div>
+<script>
+const PLACES = ["Pest, Hungary", "La Romana, Dominican Republic", "Romania", "Romania, Iowa, United States"];
+const box = document.querySelector("[role=combobox]");
+let popup = null;
+function close() {
+  if (popup) popup.remove();
+  popup = null;
+  box.setAttribute("aria-expanded", "false");
+  document.getElementById("form").removeAttribute("aria-hidden");
+}
+box.addEventListener("input", () => {
+  close();
+  const typed = box.value.trim().toLowerCase();
+  if (!typed) return;
+  const hits = PLACES.filter(p => p.toLowerCase().includes(typed.slice(0, 3)));
+  popup = document.createElement("div");
+  popup.setAttribute("role", "listbox");
+  for (const place of hits) {
+    const option = document.createElement("div");
+    option.setAttribute("role", "option");
+    option.textContent = place;
+    option.addEventListener("click", () => { box.value = place; close(); });
+    popup.appendChild(option);
+  }
+  setTimeout(() => {
+    document.body.appendChild(popup);
+    box.setAttribute("aria-expanded", "true");
+    document.getElementById("form").setAttribute("aria-hidden", "true");
+  }, 100);
+});
+box.addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+for (const button of document.querySelectorAll(".ashby-application-form-input-yesno-option")) {
+  button.addEventListener("click", () => {
+    for (const other of button.parentElement.querySelectorAll("button")) other.setAttribute("aria-pressed", "false");
+    button.setAttribute("aria-pressed", "true");
+    button.parentElement.querySelector("input").checked = button.dataset.option === "yes";
+  });
+}
+</script>
+</body></html>

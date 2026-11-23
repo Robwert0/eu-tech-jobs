@@ -1,11 +1,15 @@
+import asyncio
+import time
 from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
-from playwright.async_api import Page, async_playwright
+from playwright.async_api import Page, Route, async_playwright
 
-from jobhunt.apply.filler import answer_fields, fill_and_submit
+from jobhunt.apply.filler import FillError, answer_fields, fill_and_submit
 from jobhunt.models import Documents, FormField, Profile, Unanswerable
+
+FORMS = Path(__file__).parent / "fixtures" / "forms"
 
 ANSWERS = {
     "full_name": "Jane Doe",
@@ -287,3 +291,243 @@ async def test_thank_you_text_already_on_the_form_is_not_a_confirmation(
 
     assert await page.evaluate("window.clicked") is True
     assert not result.confirmed
+
+
+ASHBY_FIELDS = [
+    FormField(name="_systemfield_name", label="Name", type="text", required=True),
+    FormField(
+        name="country-q",
+        label="In which country are you currently located?",
+        type="select",
+        required=True,
+    ),
+    FormField(
+        name="work-q",
+        label="Are you legally authorized to work in that location?",
+        type="radio",
+        required=True,
+        options=["Yes", "No"],
+    ),
+    FormField(
+        name="english-q",
+        label="What is your English proficiency?",
+        type="radio",
+        required=True,
+        options=["Native/Bilingual", "C2 - Proficient/Fluent"],
+    ),
+    FormField(
+        name="tools-q",
+        label="Which of the following are you familiar with?",
+        type="checkbox",
+        required=False,
+        options=["Code review", "MDM tools"],
+    ),
+]
+
+ASHBY_ANSWERS = {
+    "_systemfield_name": "Jane Doe",
+    "country-q": "Romania",
+    "work-q": "Yes",
+    "english-q": "C2 - Proficient/Fluent",
+    "tools-q": "Code review; MDM tools",
+}
+
+HIDDEN_RADIO = """
+<div style="display: none">
+  <label><input type="radio" name="survey" value="Woman">Woman</label>
+</div>
+"""
+
+
+LEVER_LOCATION = """
+<select name="eeo-country"><option>Select...</option><option>Romania</option></select>
+<label>Current location
+  <input class="location-input" id="location-input" type="text" name="location">
+</label>
+<input id="selected-location" type="hidden" name="selectedLocation">
+<div class="dropdown-results"></div>
+<input type="text" name="org">
+<script>
+const PLACES = ["Bucharest, Bucuresti, ROU", "Bucuresti, ROU", "Paris, Ile-de-France, FRA"];
+const input = document.querySelector("#location-input");
+const results = document.querySelector(".dropdown-results");
+let timer = null;
+input.addEventListener("keyup", () => {
+  clearTimeout(timer);
+  timer = setTimeout(() => {
+    const typed = input.value.split(",")[0].trim().toLowerCase();
+    results.innerHTML = "";
+    for (const place of PLACES.filter(p => p.toLowerCase().startsWith(typed.slice(0, 4)))) {
+      const row = document.createElement("div");
+      row.className = "dropdown-location";
+      row.textContent = place;
+      row.addEventListener("mousedown", () => {
+        input.value = place;
+        document.querySelector("#selected-location").value = place;
+        results.innerHTML = "";
+      });
+      results.appendChild(row);
+    }
+  }, 150);
+});
+input.addEventListener("blur", () => {
+  setTimeout(() => {
+    if (!document.querySelector("#selected-location").value) input.value = "";
+  }, 50);
+});
+</script>
+"""
+
+PARSING_RESUME = """
+<input type="file" name="resume">
+<input type="text" name="name">
+<script>
+document.querySelector("[name=resume]").addEventListener("change", () => {
+  fetch("/parseResume").then(r => r.json()).then(data => {
+    document.querySelector("[name=name]").value = data.name;
+  });
+});
+</script>
+"""
+
+
+async def test_lever_location_is_picked_from_its_suggestions(page: Page, tmp_path: Path) -> None:
+    await page.set_content(LEVER_LOCATION)
+    fields = [
+        FormField(name="location", label="Current location", type="select", required=True),
+        FormField(name="org", label="Current company", type="text", required=True),
+    ]
+
+    await fill_and_submit(
+        page,
+        fields,
+        {"location": "Bucharest, Romania", "org": "Acme"},
+        submit=False,
+        evidence_dir=tmp_path / "evidence",
+        field_timeout=2000,
+    )
+
+    assert await page.input_value("[name=location]") == "Bucharest, Bucuresti, ROU"
+    assert await page.input_value("#selected-location") == "Bucharest, Bucuresti, ROU"
+    assert await page.input_value("[name=eeo-country]") == "Select..."
+
+
+async def test_files_are_uploaded_before_text_is_typed(
+    page: Page, documents: Documents, tmp_path: Path
+) -> None:
+    async def serve(route: Route) -> None:
+        if route.request.url.endswith("/parseResume"):
+            await asyncio.sleep(0.5)
+            await route.fulfill(json={"name": "Parsed Name"})
+        else:
+            await route.fulfill(body=PARSING_RESUME, content_type="text/html")
+
+    await page.route("https://jobs.example/**", serve)
+    await page.goto("https://jobs.example/apply")
+    fields = [
+        FormField(name="name", label="Full name", type="text", required=True),
+        FormField(name="resume", label="Resume/CV", type="file", required=True),
+    ]
+
+    await fill_and_submit(
+        page,
+        fields,
+        {"name": "Jane Doe", "resume": str(documents.cv_pdf)},
+        submit=False,
+        evidence_dir=tmp_path / "evidence",
+        field_timeout=2000,
+    )
+    await page.wait_for_timeout(1000)
+
+    assert await page.input_value("[name=name]") == "Jane Doe"
+
+
+def hidden_field(required: bool) -> FormField:
+    return FormField(
+        name="survey", label="Gender", type="radio", required=required, options=["Woman"]
+    )
+
+
+async def test_ashby_autocomplete_then_yes_no_and_groups(page: Page, tmp_path: Path) -> None:
+    await page.set_content((FORMS / "ashby_widgets.html").read_text())
+
+    result = await fill_and_submit(
+        page,
+        ASHBY_FIELDS,
+        ASHBY_ANSWERS,
+        submit=False,
+        evidence_dir=tmp_path / "evidence",
+        field_timeout=2000,
+    )
+
+    assert result.skipped == []
+    assert await page.input_value("[role=combobox]") == "Romania"
+    assert await page.get_attribute("[data-option=yes]", "aria-pressed") == "true"
+    assert await page.is_checked("#entry_english-q-labeled-radio-1")
+    assert await page.is_checked("#entry_tools-q-labeled-checkbox-0")
+    assert await page.is_checked("#entry_tools-q-labeled-checkbox-1")
+    assert await page.evaluate("window.clicked") is None
+
+
+async def test_autocomplete_without_matching_option_fails_the_field(
+    page: Page, tmp_path: Path
+) -> None:
+    await page.set_content((FORMS / "ashby_widgets.html").read_text())
+
+    with pytest.raises(FillError, match="In which country"):
+        await fill_and_submit(
+            page,
+            ASHBY_FIELDS,
+            {**ASHBY_ANSWERS, "country-q": "Atlantis"},
+            submit=False,
+            evidence_dir=tmp_path / "evidence",
+            field_timeout=1000,
+        )
+
+
+async def test_autocomplete_matches_all_parts_of_the_answer(page: Page, tmp_path: Path) -> None:
+    await page.set_content((FORMS / "ashby_widgets.html").read_text())
+
+    await fill_and_submit(
+        page,
+        ASHBY_FIELDS[1:2],
+        {"country-q": "Romania, United States"},
+        submit=False,
+        evidence_dir=tmp_path / "evidence",
+        field_timeout=2000,
+    )
+
+    assert await page.input_value("[role=combobox]") == "Romania, Iowa, United States"
+
+
+async def test_optional_field_that_cannot_be_filled_is_skipped(page: Page, tmp_path: Path) -> None:
+    await page.set_content(form() + HIDDEN_RADIO)
+
+    started = time.monotonic()
+    result = await fill_and_submit(
+        page,
+        [hidden_field(required=False)],
+        {"survey": "Woman"},
+        submit=False,
+        evidence_dir=tmp_path / "evidence",
+        field_timeout=500,
+    )
+
+    assert result.skipped == ["Gender"]
+    assert time.monotonic() - started < 10
+
+
+async def test_required_field_that_cannot_be_filled_raises(page: Page, tmp_path: Path) -> None:
+    await page.set_content(form() + HIDDEN_RADIO)
+
+    with pytest.raises(FillError, match="Gender"):
+        await fill_and_submit(
+            page,
+            [hidden_field(required=True)],
+            {"survey": "Woman"},
+            submit=True,
+            evidence_dir=tmp_path / "evidence",
+            field_timeout=500,
+        )
+
+    assert await page.evaluate("window.clicked") is None

@@ -48,13 +48,15 @@ GREENHOUSE_TYPES: dict[str, FieldType] = {
 
 LEVER_JS = """
 items => items.map(item => {
+  if (item.getClientRects().length === 0) return null;
   const label = item.querySelector('.application-label');
   const inputs = [...item.querySelectorAll('input:not([type=hidden]), textarea, select')];
   if (!label || inputs.length === 0) return null;
   const first = inputs[0];
   const type = first.tagName === 'TEXTAREA' ? 'textarea'
-    : first.tagName === 'SELECT' ? 'select' : first.type;
-  const options = type === 'select'
+    : first.tagName === 'SELECT' || first.classList.contains('location-input') ? 'select'
+    : first.type;
+  const options = first.tagName === 'SELECT'
     ? [...first.options].filter(o => o.value).map(o => o.textContent.trim())
     : (type === 'radio' || type === 'checkbox') ? inputs.map(i => i.value) : [];
   return {
@@ -70,26 +72,32 @@ items => items.map(item => {
 ASHBY_JS = """
 entries => entries.map(entry => {
   const title = entry.querySelector('.ashby-application-form-question-title');
+  if (!title) return null;
   const inputs = [...entry.querySelectorAll('input:not([type=hidden]), textarea, select')];
   const buttons = [...entry.querySelectorAll('button')].map(b => b.textContent.trim());
   const first = inputs[0];
   let type = !first ? 'text' : first.tagName === 'TEXTAREA' ? 'textarea'
-    : first.tagName === 'SELECT' ? 'select' : first.type;
+    : first.tagName === 'SELECT' || first.getAttribute('role') === 'combobox' ? 'select'
+    : first.type;
   let options = [];
   const yesNo = buttons.includes('Yes') && buttons.includes('No');
   if (type === 'checkbox' && inputs.length === 1 && yesNo) {
     type = 'radio';
     options = ['Yes', 'No'];
   } else if (type === 'radio' || type === 'checkbox') {
-    options = inputs.map(i => (i.closest('label')?.textContent || i.value).trim());
-  } else if (type === 'select') {
+    options = inputs.map(i => {
+      const label = (i.id && entry.querySelector(`label[for="${CSS.escape(i.id)}"]`))
+        || i.closest('label');
+      return (label?.textContent || i.value).trim();
+    });
+  } else if (type === 'select' && first.tagName === 'SELECT') {
     options = [...first.options].filter(o => o.value).map(o => o.textContent.trim());
   }
   return {
     name: entry.dataset.fieldPath,
-    label: title ? title.textContent : '',
+    label: title.textContent,
     type,
-    required: (title?.className || '').includes('required') || inputs.some(i => i.required),
+    required: title.className.includes('required') || inputs.some(i => i.required),
     options,
   };
 })
@@ -97,7 +105,7 @@ entries => entries.map(entry => {
 
 READERS: dict[Ats, tuple[str, str]] = {
     Ats.lever: ("li.application-question", LEVER_JS),
-    Ats.ashby: (".ashby-application-form-field-entry", ASHBY_JS),
+    Ats.ashby: ("[data-field-path]", ASHBY_JS),
 }
 
 
