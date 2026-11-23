@@ -1,7 +1,11 @@
 from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
 from jobhunt import db
-from jobhunt.queries import JobSummary, search_jobs
+from jobhunt.models import JobDetail, JobSummary, Profile
+from jobhunt.profile import load_profile, profile_dir
+from jobhunt.queries import JobNotFound, search_jobs
+from jobhunt.queries import get_job as fetch_job
 
 mcp = MCPServer("jobhunt")
 
@@ -51,5 +55,31 @@ def find_jobs(
             contractor_ok=contractor_ok,
             limit=limit,
         )
+    finally:
+        conn.close()
+
+
+@mcp.tool(
+    description=(
+        "Robert's real CV facts and form answers. Use only these facts in any CV, "
+        "cover letter or form answer; never invent a skill, number, date or employer."
+    )
+)
+def get_profile() -> Profile:
+    return load_profile(profile_dir())
+
+
+@mcp.tool(
+    description=(
+        "The full posting for one job id from find_jobs: description, offices, score, "
+        "review state and reason, and whether the posting has closed."
+    )
+)
+def get_job(job_id: str) -> JobDetail:
+    conn = db.connect(db.db_path())
+    try:
+        return fetch_job(conn=conn, job_id=job_id)
+    except JobNotFound as e:
+        raise ToolError(str(e)) from e
     finally:
         conn.close()

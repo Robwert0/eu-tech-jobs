@@ -3,6 +3,7 @@ from pathlib import Path
 from sqlite3 import Connection
 
 import pytest
+from mcp.server.mcpserver.exceptions import ToolError
 
 from jobhunt import db
 from jobhunt.cli import main
@@ -10,7 +11,7 @@ from jobhunt.enums import AppState, Ats
 from jobhunt.location import classify
 from jobhunt.mcp_server import mcp
 from jobhunt.models import Board, Job
-from jobhunt.queries import search_jobs
+from jobhunt.queries import JobDetail, JobNotFound, get_job, search_jobs
 
 NOW = datetime(2026, 11, 22, 8, 0, tzinfo=UTC)
 BOARD = Board(company="Acme", ats=Ats.greenhouse, slug="acme")
@@ -227,3 +228,74 @@ async def test_mcp_get_profile_reads_jobhunt_profile(monkeypatch: pytest.MonkeyP
     assert not result.is_error
     ids = [f["id"] for f in result.structured_content["facts"]]
     assert "role-acme" in ids
+
+
+def test_get_job_returns_description_and_state(conn: Connection) -> None:
+    job = make_job("x", title="Backend Engineer", description="We use Python and Go.")
+    store(conn, job, score=77)
+    db.set_state(conn, job.id, AppState.manual, reason="shortlisted")
+
+    detail = get_job(conn, job.id)
+
+    assert isinstance(detail, JobDetail)
+    assert detail.id == job.id
+    assert detail.title == "Backend Engineer"
+    assert detail.company == "Acme"
+    assert detail.description == "We use Python and Go."
+    assert detail.offices == ["Bucharest, Romania"]
+    assert detail.location_class == "romania"
+    assert detail.score == 77
+    assert detail.state == "manual"
+    assert detail.reason == "shortlisted"
+    assert detail.closed is False
+
+
+def test_get_job_never_reviewed_has_no_state(conn: Connection) -> None:
+    job = make_job("y")
+    db.upsert_job(conn, job, NOW)
+    detail = get_job(conn, job.id)
+    assert (detail.state, detail.reason, detail.score) == (None, None, None)
+
+
+def test_get_job_closed_is_flagged(conn: Connection) -> None:
+    job = make_job("gone")
+    store(conn, job, closed=True)
+    detail = get_job(conn, job.id)
+    assert detail.closed is True
+    assert detail.title == "Engineer"
+
+
+def test_get_job_unknown_id_raises(conn: Connection) -> None:
+    with pytest.raises(JobNotFound, match="greenhouse:acme:nope"):
+        get_job(conn, "greenhouse:acme:nope")
+
+
+async def test_mcp_lists_get_job_tool() -> None:
+    tools = {t.name: t for t in await mcp.list_tools()}
+    assert "get_job" in tools
+    assert set(tools["get_job"].input_schema["properties"]) == {"job_id"}
+    assert "description" in (tools["get_job"].description or "").lower()
+
+
+async def test_mcp_get_job_reads_jobhunt_db(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "live.db"
+    c = db.connect(path)
+    db.upsert_board(c, BOARD)
+    store(c, make_job("a", description="Full posting text."))
+    c.close()
+    monkeypatch.setenv("JOBHUNT_DB", str(path))
+
+    result = await mcp.call_tool("get_job", {"job_id": "greenhouse:acme:a"})
+
+    assert not result.is_error
+    assert result.structured_content["description"] == "Full posting text."
+
+
+async def test_mcp_get_job_unknown_id_is_a_clear_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("JOBHUNT_DB", str(tmp_path / "empty.db"))
+    with pytest.raises(ToolError, match="greenhouse:acme:nope"):
+        await mcp.call_tool("get_job", {"job_id": "greenhouse:acme:nope"})
