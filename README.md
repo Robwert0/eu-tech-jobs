@@ -286,6 +286,55 @@ Add a company by editing `companies.json` — a name is enough; discovery finds 
 
 ---
 
+## 🕗 Daily crawl
+
+`scripts/daily.sh` runs the crawl from the repo root (wherever it is called from) and appends timestamped output to `data/logs/daily-YYYY-MM-DD.log`. It exits non-zero when a step fails. Try it once by hand:
+
+```bash
+scripts/daily.sh && tail data/logs/daily-$(date +%F).log
+```
+
+**Missed runs are harmless.** The crawl is idempotent: the next run picks up every job still open and never resets a decision. Skipping a day only means a job that opened and closed in between is never seen.
+
+**Option A — cron inside WSL.** Add this line with `crontab -e`:
+
+```cron
+0 8 * * * ~/eu-tech-jobs/scripts/daily.sh
+```
+
+WSL does not start cron by itself, and cron only fires while the WSL VM is running (WSL stops a while after the last terminal closes; a sleeping laptop runs nothing). To start cron with WSL, either turn on systemd in `/etc/wsl.conf` and enable the service:
+
+```ini
+[boot]
+systemd=true
+```
+
+```bash
+sudo systemctl enable --now cron
+```
+
+or, without systemd, start it at boot instead:
+
+```ini
+[boot]
+command="service cron start"
+```
+
+Then run `wsl --shutdown` from Windows and open WSL again. Check with `service cron status`.
+
+**Option B — Windows Task Scheduler (recommended on a laptop).** Windows starts WSL itself, and *run as soon as possible after a missed start* covers sleep. In PowerShell:
+
+```powershell
+$action   = New-ScheduledTaskAction -Execute "wsl.exe" -Argument "-e bash -lc ~/eu-tech-jobs/scripts/daily.sh"
+$trigger  = New-ScheduledTaskTrigger -Daily -At 08:00
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable
+Register-ScheduledTask -TaskName "jobhunt daily" -Action $action -Trigger $trigger -Settings $settings
+```
+
+Add `-d <distro>` before `-e` if Ubuntu is not your default distro. Use one option, not both.
+
+---
+
 ## 🗂️ Project layout
 
 ```
@@ -300,6 +349,7 @@ src/jobhunt/
 ├── queries.py                search_jobs → JobSummary
 ├── mcp_server.py             MCP tools for Claude
 └── cli.py                    jobhunt discover | crawl | serve
+scripts/daily.sh              the unattended daily run · logs to data/logs/
 tests/                        mirrors src/ · fixtures/ are recorded real responses
 docs/design.md                goals, trade-offs and decisions
 docs/learning/                interview-ready notes: MCP · crawling · state machine
