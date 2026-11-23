@@ -29,7 +29,7 @@ def test_duplicate_fact_id_rejected(tmp_path: Path) -> None:
         "- {id: a, kind: skill, text: Python}\n- {id: a, kind: skill, text: Go}\n"
     )
     (tmp_path / "answers.yaml").write_text("location: Bucharest\n")
-    with pytest.raises(ProfileError, match="'a'"):
+    with pytest.raises(ProfileError, match=f"a is already in {tmp_path}/facts.yaml"):
         load_profile(tmp_path)
 
 

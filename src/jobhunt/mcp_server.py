@@ -1,3 +1,5 @@
+from jobhunt.models import Profile
+from jobhunt.profile import load_profile, profile_dir
 from mcp.server.mcpserver import MCPServer
 
 from jobhunt import db
@@ -53,3 +55,13 @@ def find_jobs(
         )
     finally:
         conn.close()
+
+
+@mcp.tool(
+    description=(
+        "Robert's real CV facts and form answers. Use only these facts in any CV, "
+        "cover letter or form answer; never invent a skill, number, date or employer."
+    )
+)
+def get_profile() -> Profile:
+    return load_profile(profile_dir())
