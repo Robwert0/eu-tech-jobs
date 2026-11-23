@@ -1,8 +1,8 @@
-from jobhunt.models import Profile
-from jobhunt.profile import load_profile, profile_dir
 from mcp.server.mcpserver import MCPServer
 
 from jobhunt import db
+from jobhunt.models import Profile
+from jobhunt.profile import load_profile, profile_dir
 from jobhunt.queries import JobSummary, search_jobs
 
 mcp = MCPServer("jobhunt")

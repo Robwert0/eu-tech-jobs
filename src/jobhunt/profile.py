@@ -1,9 +1,10 @@
 import os
 from pathlib import Path
-from jobhunt.models import Fact, Profile
 
 import yaml
 from pydantic import ValidationError
+
+from jobhunt.models import Fact, Profile
 
 
 class ProfileError(Exception):
