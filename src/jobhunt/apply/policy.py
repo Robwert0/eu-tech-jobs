@@ -1,6 +1,7 @@
 import sqlite3
 from datetime import UTC, date, datetime, timedelta
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 from jobhunt.enums import AppState, Ats
 from jobhunt.models import Job
@@ -10,6 +11,7 @@ Verdict = Literal["submit", "dry_run", "manual", "wait"]
 SUPPORTED_ATS = frozenset({Ats.greenhouse, Ats.lever, Ats.ashby})
 APPLIED_STATES = (AppState.submitted, AppState.applied_manually)
 COOLDOWN_DAYS = 60
+ROMANIA = ZoneInfo("Europe/Bucharest")
 
 
 class NotQueued(Exception):
@@ -48,8 +50,12 @@ def decide(
     return "submit", None
 
 
+def romanian_today(now: datetime | None = None) -> date:
+    return (now or datetime.now(UTC)).astimezone(ROMANIA).date()
+
+
 def _day(at: str) -> date:
-    return datetime.fromisoformat(at).astimezone(UTC).date()
+    return romanian_today(datetime.fromisoformat(at))
 
 
 def _applied_recently(conn: sqlite3.Connection, company: str, today: date) -> bool:

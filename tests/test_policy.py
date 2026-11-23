@@ -5,7 +5,7 @@ from sqlite3 import Connection
 import pytest
 
 from jobhunt import db
-from jobhunt.apply.policy import NotQueued, decide
+from jobhunt.apply.policy import NotQueued, decide, romanian_today
 from jobhunt.enums import AppState, Ats
 from jobhunt.location import classify
 from jobhunt.models import Board, Job
@@ -158,14 +158,14 @@ def test_cap_counts_calendar_day(conn: Connection) -> None:
             f"y{i}",
             company=f"Yesterday {i}",
             states=(AppState.submitted,),
-            at=datetime(2026, 11, 22, 23, 30, tzinfo=UTC),
+            at=datetime(2026, 11, 22, 21, 30, tzinfo=UTC),
         )
     add_job(
         conn,
         "t0",
         company="Today 0",
         states=(AppState.submitted,),
-        at=datetime(2026, 11, 23, 0, 30, tzinfo=UTC),
+        at=datetime(2026, 11, 22, 22, 30, tzinfo=UTC),
     )
     job_id = add_job(conn, "1")
     assert decide(conn, job_id, today=TODAY, submit_enabled=True, cap=2) == ("submit", None)
@@ -219,3 +219,16 @@ def test_decide_changes_nothing(conn: Connection) -> None:
             decide(conn, job_id, today=TODAY, submit_enabled=enabled, cap=0)
             decide(conn, job_id, today=TODAY, submit_enabled=enabled)
     assert snapshot(conn) == before
+
+
+@pytest.mark.parametrize(
+    ("now", "day"),
+    [
+        (datetime(2026, 11, 22, 21, 59, tzinfo=UTC), date(2026, 11, 22)),
+        (datetime(2026, 11, 22, 22, 0, tzinfo=UTC), date(2026, 11, 23)),
+        (datetime(2026, 7, 15, 20, 59, tzinfo=UTC), date(2026, 7, 15)),
+        (datetime(2026, 7, 15, 21, 0, tzinfo=UTC), date(2026, 7, 16)),
+    ],
+)
+def test_day_turns_at_romanian_midnight(now: datetime, day: date) -> None:
+    assert romanian_today(now) == day
