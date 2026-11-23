@@ -57,3 +57,24 @@ def test_profile_dir_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     assert profile_dir() == Path("profile")
     monkeypatch.setenv("JOBHUNT_PROFILE", "/tmp/elsewhere")
     assert profile_dir() == Path("/tmp/elsewhere")
+
+
+def test_broken_yaml_is_a_profile_error(tmp_path: Path) -> None:
+    (tmp_path / "facts.yaml").write_text("- {id: a, kind: skill, text: Python\n")
+    (tmp_path / "answers.yaml").write_text("location: Bucharest\n")
+    with pytest.raises(ProfileError, match="facts.yaml"):
+        load_profile(tmp_path)
+
+
+def test_empty_answers_is_a_profile_error(tmp_path: Path) -> None:
+    (tmp_path / "facts.yaml").write_text("- {id: a, kind: skill, text: Python}\n")
+    (tmp_path / "answers.yaml").write_text("")
+    with pytest.raises(ProfileError, match="answers.yaml"):
+        load_profile(tmp_path)
+
+
+def test_answers_must_be_text(tmp_path: Path) -> None:
+    (tmp_path / "facts.yaml").write_text("- {id: a, kind: skill, text: Python}\n")
+    (tmp_path / "answers.yaml").write_text("location:\n  - Bucharest\n")
+    with pytest.raises(ProfileError, match="answers.yaml"):
+        load_profile(tmp_path)
