@@ -102,3 +102,14 @@ class FormField(BaseModel):
     type: FieldType
     required: bool
     options: list[str] = []
+
+
+class Unanswerable(BaseModel):
+    missing: list[str]
+
+
+class SubmitResult(BaseModel):
+    confirmed: bool
+    screenshot: Path
+    confirmation_text: str | None = None
+    blocked: str | None = None
