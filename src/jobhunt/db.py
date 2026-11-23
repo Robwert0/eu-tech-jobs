@@ -51,12 +51,22 @@ S = AppState
 ALLOWED: dict[AppState | None, frozenset[AppState]] = {
     None: frozenset({S.found}),
     S.found: frozenset(
-        {S.skipped, S.queued, S.dry_run, S.manual, S.submitted, S.submit_unconfirmed}
+        {
+            S.skipped,
+            S.queued,
+            S.dry_run,
+            S.manual,
+            S.submitted,
+            S.submit_unconfirmed,
+            S.applied_manually,
+            S.dismissed,
+        }
     ),
     S.queued: frozenset({S.dry_run, S.manual, S.submitted, S.submit_unconfirmed, S.skipped}),
     S.dry_run: frozenset({S.submitted, S.submit_unconfirmed, S.manual}),
     S.manual: frozenset({S.applied_manually, S.dismissed}),
     S.submit_unconfirmed: frozenset({S.submitted, S.applied_manually, S.dismissed}),
+    S.skipped: frozenset({S.manual}),
 }
 
 
@@ -124,7 +134,11 @@ def get_state(conn: sqlite3.Connection, job_id: str) -> AppState | None:
 
 
 def set_state(
-    conn: sqlite3.Connection, job_id: str, state: AppState, reason: str | None = None
+    conn: sqlite3.Connection,
+    job_id: str,
+    state: AppState,
+    reason: str | None = None,
+    score: int | None = None,
 ) -> None:
     current = get_state(conn, job_id)
     if state not in ALLOWED.get(current, frozenset()):
@@ -132,11 +146,14 @@ def set_state(
     now = datetime.now(UTC).isoformat()
     with conn:
         conn.execute(
-            """INSERT INTO applications (job_id, state, reason, updated_at) VALUES (?, ?, ?, ?)
+            """INSERT INTO applications (job_id, state, reason, score, updated_at) 
+               VALUES (?, ?, ?, ?, ?)
                ON CONFLICT(job_id) DO UPDATE SET
                  state = excluded.state, reason = excluded.reason,
-                 updated_at = excluded.updated_at""",
-            (job_id, str(state), reason, now),
+                 score = COALESCE(excluded.score, score),
+                 updated_at = excluded.updated_at
+            """,
+            (job_id, str(state), reason, score, now),
         )
         conn.execute(
             "INSERT INTO events (job_id, at, from_state, to_state, reason) VALUES (?, ?, ?, ?, ?)",

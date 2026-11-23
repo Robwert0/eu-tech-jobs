@@ -2,6 +2,8 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
 from jobhunt import db
+from jobhunt.decisions import Decision, DecisionError
+from jobhunt.decisions import record_decision as save_decision
 from jobhunt.models import JobDetail, JobSummary, Profile
 from jobhunt.profile import load_profile, profile_dir
 from jobhunt.queries import JobNotFound, search_jobs
@@ -80,6 +82,31 @@ def get_job(job_id: str) -> JobDetail:
     try:
         return fetch_job(conn=conn, job_id=job_id)
     except JobNotFound as e:
+        raise ToolError(str(e)) from e
+    finally:
+        conn.close()
+
+
+@mcp.tool(
+    description=(
+        "Record Robert's decision on a job: shortlist (worth applying), skip (not a fit; "
+        "reason required, e.g. low_fit, language, location), applied, or dismiss. Include "
+        "the fit score (0-100) when you scored the job. Record applied only after Robert "
+        "confirms he submitted the application."
+    )
+)
+def record_decision(
+    job_id: str,
+    decision: Decision,
+    score: int | None = None,
+    reason: str | None = None,
+) -> JobSummary:
+    conn = db.connect(db.db_path())
+    try:
+        return save_decision(
+            conn=conn, job_id=job_id, decision=decision, score=score, reason=reason
+        )
+    except (JobNotFound, db.InvalidTransition, DecisionError) as e:
         raise ToolError(str(e)) from e
     finally:
         conn.close()
