@@ -619,3 +619,29 @@ async def test_mcp_job_questions_unreadable_form_is_a_clear_error(
 
     with pytest.raises(ToolError, match="greenhouse:acme:gone"):
         await mcp.call_tool("job_questions", {"job_id": "greenhouse:acme:gone"})
+
+
+async def test_mcp_get_profile_missing_file_is_a_clear_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("JOBHUNT_PROFILE", str(tmp_path))
+    with pytest.raises(ToolError, match="facts.yaml"):
+        await mcp.call_tool("get_profile", {})
+
+
+async def test_mcp_record_external_job_bad_input_is_a_clear_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("JOBHUNT_DB", str(tmp_path / "live.db"))
+    with pytest.raises(ToolError, match="company"):
+        await mcp.call_tool(
+            "record_external_job",
+            {
+                "source": "levels.fyi",
+                "external_id": "lv-1",
+                "company": "???",
+                "title": "Engineer",
+                "url": "https://example.com/1",
+                "location": "Remote",
+            },
+        )

@@ -19,7 +19,7 @@ from jobhunt.models import (
     JobSummary,
     Profile,
 )
-from jobhunt.profile import load_profile, profile_dir
+from jobhunt.profile import ProfileError, load_profile, profile_dir
 from jobhunt.queries import JobNotFound, list_applications, load_job, search_jobs
 from jobhunt.queries import get_job as fetch_job
 
@@ -86,7 +86,10 @@ def find_jobs(
     )
 )
 def get_profile() -> Profile:
-    return load_profile(profile_dir())
+    try:
+        return load_profile(profile_dir())
+    except ProfileError as e:
+        raise ToolError(str(e)) from e
 
 
 @mcp.tool(
@@ -184,6 +187,8 @@ def record_external_job(
             description=description,
             posted_at=posted_at,
         )
+    except DecisionError as e:
+        raise ToolError(str(e)) from e
     finally:
         conn.close()
 

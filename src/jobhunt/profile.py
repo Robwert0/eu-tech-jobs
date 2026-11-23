@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Any
 
 import yaml
 from pydantic import ValidationError
@@ -15,6 +16,13 @@ def profile_dir() -> Path:
     return Path(os.environ.get("JOBHUNT_PROFILE", "profile"))
 
 
+def _read_yaml(path: Path) -> Any:
+    try:
+        return yaml.safe_load(path.read_text())
+    except yaml.YAMLError as e:
+        raise ProfileError(f"{path} is not valid YAML: {e}") from e
+
+
 def load_profile(path: Path) -> Profile:
     facts_file = path / "facts.yaml"
     answers_file = path / "answers.yaml"
@@ -26,7 +34,10 @@ def load_profile(path: Path) -> Profile:
 
     seen: set[str] = set()
     facts: list[Fact] = []
-    for entry in yaml.safe_load(facts_file.read_text()):
+    entries = _read_yaml(facts_file)
+    if not isinstance(entries, list):
+        raise ProfileError(f"{facts_file} must be a list of facts")
+    for entry in entries:
         try:
             fact = Fact(**entry)
         except ValidationError as e:
@@ -37,5 +48,10 @@ def load_profile(path: Path) -> Profile:
         seen.add(fact.id)
         facts.append(fact)
 
-    answers = yaml.safe_load(answers_file.read_text())
-    return Profile(facts=facts, answers=answers)
+    answers = _read_yaml(answers_file)
+    if not isinstance(answers, dict):
+        raise ProfileError(f"{answers_file} must map each question to an answer")
+    try:
+        return Profile(facts=facts, answers=answers)
+    except ValidationError as e:
+        raise ProfileError(f"{answers_file}: every answer must be text. {e}") from e

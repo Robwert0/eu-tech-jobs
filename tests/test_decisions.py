@@ -201,3 +201,15 @@ async def test_shortlisted_job_can_be_queued(conn: Connection, applications: Pat
     record_decision(conn, job_id, "shortlist", score=85)
     await save_documents(job_id, "# CV\n", "Letter\n")
     assert record_decision(conn, job_id, "auto_apply").state == "queued"
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [{"company": "???"}, {"company": "  "}, {"title": ""}, {"url": " "}, {"external_id": ""}],
+)
+def test_record_external_job_rejects_unusable_input(
+    conn: Connection, overrides: dict[str, str]
+) -> None:
+    with pytest.raises(DecisionError):
+        save_everai(conn, **overrides)
+    assert conn.execute("SELECT COUNT(*) FROM jobs").fetchone()[0] == 0

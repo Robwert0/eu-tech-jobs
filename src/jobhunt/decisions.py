@@ -65,12 +65,23 @@ def record_external_job(
     description: str = "",
     posted_at: datetime | None = None,
 ) -> JobSummary:
+    for name, value in (
+        ("source", source),
+        ("external_id", external_id),
+        ("title", title),
+        ("url", url),
+    ):
+        if not value.strip():
+            raise DecisionError(f"{name} must not be empty.")
+    slug = slug_candidates(company)[0]
+    if not slug:
+        raise DecisionError(f"company {company!r} needs at least one letter or digit.")
     job_id = f"{Ats.external}:{source}:{external_id}"
     try:
         return get_job(conn, job_id)
     except JobNotFound:
         pass
-    board = Board(company=company, ats=Ats.external, slug=f"{source}/{slug_candidates(company)[0]}")
+    board = Board(company=company, ats=Ats.external, slug=f"{source}/{slug}")
     upsert_board(conn, board)
     job = Job(
         id=job_id,
