@@ -302,7 +302,7 @@ src/jobhunt/
 └── cli.py                    jobhunt discover | crawl | serve
 tests/                        mirrors src/ · fixtures/ are recorded real responses
 docs/design.md                goals, trade-offs and decisions
-docs/learning/                interview-ready notes: MCP · crawling · state machine
+docs/learning/                interview-ready notes: MCP · crawling · state machine · agent tools
 ```
 
 ---
