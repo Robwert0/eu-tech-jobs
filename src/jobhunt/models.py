@@ -114,3 +114,22 @@ class SubmitResult(BaseModel):
     confirmation_text: str | None = None
     blocked: str | None = None
     skipped: list[str] = []
+
+
+class ApplyReport(BaseModel):
+    submitted: list[str] = []
+    dry_run: list[str] = []
+    unconfirmed: list[str] = []
+    manual: dict[str, str] = {}
+    waiting: list[str] = []
+
+
+class ApplicationStatus(BaseModel):
+    job_id: str
+    state: str | None
+    reason: str | None
+    closed: bool
+    evidence: list[Path]
+    confirmation_text: str | None
+    blocked: str | None
+    skipped: list[str] = []

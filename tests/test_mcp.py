@@ -645,3 +645,97 @@ async def test_mcp_record_external_job_bad_input_is_a_clear_error(
                 "location": "Remote",
             },
         )
+
+
+async def test_mcp_lists_approve_and_status_tools() -> None:
+    tools = {t.name: t for t in await mcp.list_tools()}
+    assert set(tools["approve"].input_schema["properties"]) == {"job_id"}
+    assert set(tools["application_status"].input_schema["properties"]) == {"job_id"}
+    assert "dry_run" in (tools["approve"].description or "")
+    assert tools["application_status"].description
+
+
+def dry_run_db(path: Path, closed: bool = False) -> None:
+    c = db.connect(path)
+    db.upsert_board(c, BOARD)
+    store(c, make_job("a"), closed=closed)
+    db.set_state(c, "greenhouse:acme:a", AppState.queued)
+    db.set_state(c, "greenhouse:acme:a", AppState.dry_run)
+    c.close()
+
+
+async def test_mcp_approve_queues_dry_run_job(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "live.db"
+    dry_run_db(path)
+    monkeypatch.setenv("JOBHUNT_DB", str(path))
+    monkeypatch.setenv("JOBHUNT_APPLICATIONS", str(tmp_path / "applications"))
+
+    result = await mcp.call_tool("approve", {"job_id": "greenhouse:acme:a"})
+
+    assert not result.is_error
+    assert result.structured_content["state"] == "queued"
+
+
+async def test_mcp_approve_closed_posting_is_a_clear_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "live.db"
+    dry_run_db(path, closed=True)
+    monkeypatch.setenv("JOBHUNT_DB", str(path))
+
+    with pytest.raises(ToolError, match="closed"):
+        await mcp.call_tool("approve", {"job_id": "greenhouse:acme:a"})
+
+
+async def test_mcp_approve_wrong_state_is_a_clear_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "live.db"
+    c = db.connect(path)
+    db.upsert_board(c, BOARD)
+    store(c, make_job("a"))
+    c.close()
+    monkeypatch.setenv("JOBHUNT_DB", str(path))
+
+    with pytest.raises(ToolError, match="found"):
+        await mcp.call_tool("approve", {"job_id": "greenhouse:acme:a"})
+    with pytest.raises(ToolError, match="greenhouse:acme:nope"):
+        await mcp.call_tool("approve", {"job_id": "greenhouse:acme:nope"})
+
+
+async def test_mcp_application_status(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    path = tmp_path / "live.db"
+    dry_run_db(path)
+    monkeypatch.setenv("JOBHUNT_DB", str(path))
+    monkeypatch.setenv("JOBHUNT_APPLICATIONS", str(tmp_path / "applications"))
+
+    result = await mcp.call_tool("application_status", {"job_id": "greenhouse:acme:a"})
+
+    assert not result.is_error
+    assert result.structured_content["state"] == "dry_run"
+    assert result.structured_content["evidence"] == []
+    with pytest.raises(ToolError, match="greenhouse:acme:nope"):
+        await mcp.call_tool("application_status", {"job_id": "greenhouse:acme:nope"})
+
+
+def test_cli_apply_on_empty_database(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("JOBHUNT_DB", str(tmp_path / "cli.db"))
+    monkeypatch.setenv("JOBHUNT_PROFILE", str(Path(__file__).parent.parent / "profile.example"))
+    monkeypatch.delenv("JOBHUNT_SUBMIT", raising=False)
+    assert main(["apply"]) == 0
+    out = capsys.readouterr().out
+    assert "submitted: 0" in out
+    assert "submit is off" in out
+
+
+def test_cli_apply_without_profile_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("JOBHUNT_DB", str(tmp_path / "cli.db"))
+    monkeypatch.setenv("JOBHUNT_PROFILE", str(tmp_path / "nope"))
+    assert main(["apply"]) == 1
+    assert "facts.yaml" in capsys.readouterr().err

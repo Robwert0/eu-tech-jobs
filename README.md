@@ -229,7 +229,7 @@ needs adapter: phenom 3 (Adobe, Cisco, Thales)
 | prompt `review_jobs` | 📝 2 | the session playbook: score, skip, table, tailor, record |
 | `save_documents(job_id, cv, cover_letter, answers)` | 📝 3 | Markdown → PDF under `data/applications/{job}/` |
 | `job_questions(job_id)` | 📝 3 | a form's custom questions, answered in the session |
-| `approve(job_id)` · `application_status(job_id)` | 📝 3 | release a dry-run; see evidence and confirmation |
+| `approve(job_id)` · `application_status(job_id)` | ✅ 3 | release a dry-run back to the queue; see state, reason, screenshots and confirmation text |
 
 ---
 
@@ -266,6 +266,7 @@ uv sync                                   # Python 3.15 and all dependencies
 uv run pytest -q                          # the test suite
 uv run jobhunt discover                   # companies.json → job boards (+ needs-adapter ranking)
 uv run jobhunt crawl                      # boards → data/jobhunt.db
+uv run jobhunt apply                      # queued auto_apply jobs → dry run (screenshots only)
 claude mcp add jobhunt -- uv --directory ~/eu-tech-jobs run jobhunt serve
 ```
 
@@ -275,6 +276,9 @@ Then, in a new Claude Code session: *"Find remote Python jobs open to Romania."*
 |---|---|---|
 | `JOBHUNT_DB` | `data/jobhunt.db` | database file |
 | `JOBHUNT_PROFILE` | `profile/` | private CV facts and form answers (format: `profile.example/`) |
+| `JOBHUNT_APPLICATIONS` | `data/applications/` | saved documents and apply evidence per job |
+| `JOBHUNT_SUBMIT` | off | `1` lets `jobhunt apply` click Submit; otherwise every queued job is only dry-run |
+| `JOBHUNT_DAILY_CAP` | `10` | submits per Romanian calendar day |
 
 Add a company by editing `companies.json` — a name is enough; discovery finds the board. Give a careers page or an explicit board when the name alone can't:
 
@@ -288,11 +292,13 @@ Add a company by editing `companies.json` — a name is enough; discovery finds 
 
 ## 🕗 Daily crawl
 
-`scripts/daily.sh` runs the crawl from the repo root (wherever it is called from) and appends timestamped output to `data/logs/daily-YYYY-MM-DD.log`. It exits non-zero when a step fails. Try it once by hand:
+`scripts/daily.sh` runs the crawl and then `jobhunt apply` from the repo root (wherever it is called from) and appends timestamped output to `data/logs/daily-YYYY-MM-DD.log`. It exits non-zero when a step fails. Try it once by hand:
 
 ```bash
 scripts/daily.sh && tail data/logs/daily-$(date +%F).log
 ```
+
+**`jobhunt apply`** takes every `queued` job, oldest first, through the policy (open posting, 60 days per company, daily cap), reads the form, answers only from the profile and the saved answers, and fills it. Outcomes: `dry_run` (submit off; check the screenshot, then `approve`), `submitted` (confirmation seen), `submit_unconfirmed` (no confirmation, check by hand), `manual(reason)` (closed, applied_recently, missing_documents, unanswerable, captcha, fill_error), or left `queued` when the cap is reached. Evidence goes to `data/applications/<job>/evidence/<timestamp>/` (screenshots + `result.json`). Running it twice a day never applies twice: a job leaves `queued` as soon as it is handled.
 
 **Missed runs are harmless.** The crawl is idempotent: the next run picks up every job still open and never resets a decision. Skipping a day only means a job that opened and closed in between is never seen.
 
@@ -347,8 +353,9 @@ src/jobhunt/
 ├── seed/                     companies.json loader · board discovery
 ├── crawl.py                  concurrent fetch, sequential writes, close vanished jobs
 ├── queries.py                search_jobs → JobSummary
+├── apply/                    form readers · filler · policy · run (jobhunt apply)
 ├── mcp_server.py             MCP tools for Claude
-└── cli.py                    jobhunt discover | crawl | serve
+└── cli.py                    jobhunt discover | crawl | apply | serve
 scripts/daily.sh              the unattended daily run · logs to data/logs/
 tests/                        mirrors src/ · fixtures/ are recorded real responses
 docs/design.md                goals, trade-offs and decisions

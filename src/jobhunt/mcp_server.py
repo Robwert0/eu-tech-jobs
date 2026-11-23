@@ -6,6 +6,9 @@ from playwright.async_api import Error as PlaywrightError
 
 from jobhunt import db
 from jobhunt.apply.forms import UnsupportedForm, custom_questions, job_fields
+from jobhunt.apply.run import NotApprovable
+from jobhunt.apply.run import application_status as read_status
+from jobhunt.apply.run import approve as approve_job
 from jobhunt.decisions import Decision, DecisionError
 from jobhunt.decisions import record_decision as save_decision
 from jobhunt.decisions import record_external_job as save_external_job
@@ -13,6 +16,7 @@ from jobhunt.documents import save_documents as write_documents
 from jobhunt.http import FetchError
 from jobhunt.models import (
     ApplicationRow,
+    ApplicationStatus,
     Documents,
     FormField,
     JobDetail,
@@ -302,3 +306,41 @@ async def job_questions(job_id: str) -> list[FormField]:
         raise ToolError(str(e)) from e
     except (FetchError, PlaywrightError) as e:
         raise ToolError(f"Could not read the application form for {job_id}: {e}") from e
+
+
+@mcp.tool(
+    description=(
+        "Approve a job the autopilot dry-ran (state dry_run) after Robert has checked its "
+        "screenshot (see application_status): the job goes back to queued and the next "
+        "jobhunt apply run submits it when submitting is on. Only when Robert explicitly "
+        "approves this job. Fails if the job is not in dry_run or the posting has closed."
+    )
+)
+def approve(job_id: str) -> ApplicationStatus:
+    conn = db.connect(db.db_path())
+    try:
+        return approve_job(conn, job_id)
+    except (JobNotFound, NotApprovable, db.InvalidTransition) as e:
+        raise ToolError(str(e)) from e
+    finally:
+        conn.close()
+
+
+@mcp.tool(
+    description=(
+        "Where an autopilot application stands: state (queued, dry_run, submitted, "
+        "submit_unconfirmed, manual...), the reason (e.g. captcha, unanswerable: <questions>, "
+        "fill_error, closed, applied_recently, missing_documents), whether the posting has "
+        "closed, the evidence files (screenshots and result.json, oldest run first), the "
+        "confirmation text the employer's page showed, and what blocked it. Show Robert the "
+        "screenshot paths for dry_run and submit_unconfirmed jobs."
+    )
+)
+def application_status(job_id: str) -> ApplicationStatus:
+    conn = db.connect(db.db_path())
+    try:
+        return read_status(conn, job_id)
+    except JobNotFound as e:
+        raise ToolError(str(e)) from e
+    finally:
+        conn.close()
