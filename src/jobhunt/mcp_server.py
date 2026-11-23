@@ -2,9 +2,9 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
 from jobhunt import db
-from jobhunt.models import JobDetail, Profile
+from jobhunt.models import JobDetail, JobSummary, Profile
 from jobhunt.profile import load_profile, profile_dir
-from jobhunt.queries import JobNotFound, JobSummary, search_jobs
+from jobhunt.queries import JobNotFound, search_jobs
 from jobhunt.queries import get_job as fetch_job
 
 mcp = MCPServer("jobhunt")
