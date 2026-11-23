@@ -90,3 +90,33 @@ def test_list_boards_round_trip(conn) -> None:  # type: ignore[no-untyped-def]
     eu = Board(company="Beta", ats=Ats.lever, slug="beta", host="api.eu.lever.co")
     db.upsert_board(conn, eu)
     assert sorted(db.list_boards(conn), key=lambda b: b.key) == [BOARD, eu]
+
+
+def test_set_state_stores_and_keeps_score(conn) -> None:  # type: ignore[no-untyped-def]
+    job = make_job()
+    db.upsert_job(conn, job, T1)
+    db.set_state(conn, job.id, AppState.found)
+    db.set_state(conn, job.id, AppState.manual, reason="shortlisted", score=82)
+    assert conn.execute("SELECT score FROM applications").fetchone()[0] == 82
+    db.set_state(conn, job.id, AppState.applied_manually)
+    assert conn.execute("SELECT score FROM applications").fetchone()[0] == 82
+
+
+def test_found_can_go_straight_to_applied_or_dismissed(conn) -> None:  # type: ignore[no-untyped-def]
+    a, b = make_job("1"), make_job("2")
+    for job in (a, b):
+        db.upsert_job(conn, job, T1)
+        db.set_state(conn, job.id, AppState.found)
+    db.set_state(conn, a.id, AppState.applied_manually)
+    db.set_state(conn, b.id, AppState.dismissed, reason="not interested")
+    assert db.get_state(conn, a.id) == AppState.applied_manually
+    assert db.get_state(conn, b.id) == AppState.dismissed
+
+
+def test_skipped_can_be_undone_into_manual(conn) -> None:  # type: ignore[no-untyped-def]
+    job = make_job()
+    db.upsert_job(conn, job, T1)
+    db.set_state(conn, job.id, AppState.found)
+    db.set_state(conn, job.id, AppState.skipped, reason="low_fit")
+    db.set_state(conn, job.id, AppState.manual, reason="shortlisted")
+    assert db.get_state(conn, job.id) == AppState.manual
