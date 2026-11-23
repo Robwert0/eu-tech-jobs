@@ -9,7 +9,8 @@ from jobhunt.models import Job
 Verdict = Literal["submit", "dry_run", "manual", "wait"]
 
 SUPPORTED_ATS = frozenset({Ats.greenhouse, Ats.lever, Ats.ashby})
-APPLIED_STATES = (AppState.submitted, AppState.applied_manually)
+SUBMITTED_STATES = (AppState.submitted, AppState.submit_unconfirmed)
+APPLIED_STATES = (*SUBMITTED_STATES, AppState.applied_manually)
 COOLDOWN_DAYS = 60
 ROMANIA = ZoneInfo("Europe/Bucharest")
 
@@ -76,6 +77,7 @@ def _applied_recently(conn: sqlite3.Connection, company: str, today: date) -> bo
 
 def _submitted_on(conn: sqlite3.Connection, day: date) -> int:
     rows = conn.execute(
-        "SELECT job_id, at FROM events WHERE to_state = ?", (str(AppState.submitted),)
+        "SELECT job_id, at FROM events WHERE to_state IN (?, ?)",
+        [str(s) for s in SUBMITTED_STATES],
     )
     return len({job_id for job_id, at in rows if _day(at) == day})

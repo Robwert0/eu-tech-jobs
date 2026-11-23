@@ -10,7 +10,7 @@ from playwright.async_api import Page, async_playwright
 
 from jobhunt import db
 from jobhunt.apply.filler import FillError, answer_fields, fill_and_submit
-from jobhunt.apply.forms import READERS, UnsupportedForm, _greenhouse_questions, read_form
+from jobhunt.apply.forms import READERS, UnsupportedForm, greenhouse_questions, read_form
 from jobhunt.apply.policy import decide
 from jobhunt.documents import application_dir, load_documents
 from jobhunt.enums import AppState, Ats
@@ -65,7 +65,7 @@ def _evidence_root(job_id: str) -> Path:
 async def _read_fields(page: Page, job: Job) -> list[FormField]:
     ats = job.board.ats
     if ats is Ats.greenhouse:
-        fields = await _greenhouse_questions(job)
+        fields = await greenhouse_questions(job)
         if fields:
             first = page.locator(f"[id={json.dumps(fields[0].name)}]").first
             await first.wait_for(state="attached", timeout=FORM_TIMEOUT_MS)

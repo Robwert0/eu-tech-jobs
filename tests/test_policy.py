@@ -232,3 +232,45 @@ def test_decide_changes_nothing(conn: Connection) -> None:
 )
 def test_day_turns_at_romanian_midnight(now: datetime, day: date) -> None:
     assert romanian_today(now) == day
+
+
+def test_unconfirmed_submit_counts_as_applied_recently(conn: Connection) -> None:
+    add_job(
+        conn,
+        "old",
+        company="Globex",
+        states=(AppState.queued, AppState.submit_unconfirmed),
+        at=days_ago(10),
+    )
+    job_id = add_job(conn, "new", company="Globex")
+
+    assert decide(conn, job_id, today=TODAY, submit_enabled=True) == (
+        "manual",
+        "applied_recently",
+    )
+
+
+def test_unconfirmed_submit_counts_toward_the_cap(conn: Connection) -> None:
+    add_job(
+        conn,
+        "t0",
+        company="Initech",
+        states=(AppState.queued, AppState.submit_unconfirmed),
+        at=NOW,
+    )
+    job_id = add_job(conn, "1")
+
+    assert decide(conn, job_id, today=TODAY, submit_enabled=True, cap=1) == ("wait", None)
+
+
+def test_unconfirmed_then_confirmed_counts_once(conn: Connection) -> None:
+    add_job(
+        conn,
+        "t0",
+        company="Initech",
+        states=(AppState.queued, AppState.submit_unconfirmed, AppState.submitted),
+        at=NOW,
+    )
+    job_id = add_job(conn, "1")
+
+    assert decide(conn, job_id, today=TODAY, submit_enabled=True, cap=2) == ("submit", None)
