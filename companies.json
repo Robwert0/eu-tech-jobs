@@ -133,5 +133,6 @@
   {"name": "Chainguard", "board": {"ats": "greenhouse", "slug": "chainguard"}},
   {"name": "SAP Fioneer", "careers_url": "https://www.sapfioneer.com/careers/"},
   {"name": "Raiffeisen Bank Romania", "careers_url": "https://cariere.raiffeisen.ro/jobs"},
-  {"name": "Banca Transilvania", "careers_url": "https://cariere.bancatransilvania.ro/joburi-disponibile"}
+  {"name": "Banca Transilvania", "careers_url": "https://cariere.bancatransilvania.ro/joburi-disponibile"},
+  {"name": "EverAI", "board": {"ats": "ashby", "slug": "everai"}}
 ]
