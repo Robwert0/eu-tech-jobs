@@ -120,3 +120,11 @@ def test_skipped_can_be_undone_into_manual(conn) -> None:  # type: ignore[no-unt
     db.set_state(conn, job.id, AppState.skipped, reason="low_fit")
     db.set_state(conn, job.id, AppState.manual, reason="shortlisted")
     assert db.get_state(conn, job.id) == AppState.manual
+
+
+def test_dry_run_can_be_approved_back_to_queued(conn) -> None:  # type: ignore[no-untyped-def]
+    job = make_job()
+    db.upsert_job(conn, job, T1)
+    for state in (AppState.found, AppState.queued, AppState.dry_run, AppState.queued):
+        db.set_state(conn, job.id, state)
+    assert db.get_state(conn, job.id) == AppState.queued

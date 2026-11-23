@@ -1,13 +1,17 @@
 import argparse
 import asyncio
+import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
 from jobhunt import db
+from jobhunt.apply.policy import romanian_today
+from jobhunt.apply.run import chromium_page, run_apply
 from jobhunt.crawl import crawl
 from jobhunt.http import FetchError, PoliteClient
 from jobhunt.mcp_server import mcp
+from jobhunt.profile import ProfileError, load_profile, profile_dir
 from jobhunt.seed.discover import discover
 from jobhunt.seed.manual import load_companies
 
@@ -21,6 +25,10 @@ def main(argv: list[str] | None = None) -> int:
     discover = commands.add_parser("discover", help="find job boards for companies.json")
     discover.add_argument("--companies", type=Path, default=Path("companies.json"))
     commands.add_parser("serve", help="run the MCP server over stdio")
+    commands.add_parser(
+        "apply",
+        help="fill queued applications; submits only with JOBHUNT_SUBMIT=1, else dry run",
+    )
 
     args = parser.parse_args(argv)
     if args.command is None:
@@ -30,6 +38,8 @@ def main(argv: list[str] | None = None) -> int:
         return asyncio.run(_crawl())
     if args.command == "discover":
         return asyncio.run(_discover(args.companies))
+    if args.command == "apply":
+        return asyncio.run(_apply())
     if args.command == "serve":
         mcp.run("stdio")
         return 0
@@ -73,4 +83,43 @@ async def _crawl() -> int:
     if report.boards_failed:
         for board in report.boards_failed:
             print(f"failed: {board}")
+    return 0
+
+
+async def _apply() -> int:
+    try:
+        profile = load_profile(profile_dir())
+        cap = int(os.environ.get("JOBHUNT_DAILY_CAP", "10"))
+    except (ProfileError, ValueError) as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    submit = os.environ.get("JOBHUNT_SUBMIT") == "1"
+    conn = db.connect(db.db_path())
+    try:
+        report = await run_apply(
+            conn,
+            today=romanian_today(),
+            submit_enabled=submit,
+            cap=cap,
+            browser_factory=chromium_page,
+            profile=profile,
+        )
+    finally:
+        conn.close()
+    print(f"submit is {'on' if submit else 'off'}, daily cap {cap}")
+    print(
+        f"submitted: {len(report.submitted)}  dry_run: {len(report.dry_run)}  "
+        f"unconfirmed: {len(report.unconfirmed)}  manual: {len(report.manual)}  "
+        f"waiting: {len(report.waiting)}"
+    )
+    for label, ids in (
+        ("submitted", report.submitted),
+        ("dry_run", report.dry_run),
+        ("unconfirmed", report.unconfirmed),
+        ("waiting", report.waiting),
+    ):
+        for job_id in ids:
+            print(f"  {label}: {job_id}")
+    for job_id, reason in report.manual.items():
+        print(f"  manual: {job_id} ({reason})")
     return 0

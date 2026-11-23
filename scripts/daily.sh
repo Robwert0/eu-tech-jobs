@@ -18,3 +18,4 @@ run_step() {
 }
 
 run_step crawl uv run jobhunt crawl || exit $?
+run_step apply uv run jobhunt apply || exit $?
