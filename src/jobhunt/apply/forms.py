@@ -152,7 +152,7 @@ async def read_form(page: Page, ats: Ats) -> list[FormField]:
     return [_field(item) for item in raw if item]
 
 
-async def _greenhouse_questions(job: Job) -> list[FormField]:
+async def greenhouse_questions(job: Job) -> list[FormField]:
     host = job.board.host or "boards-api.greenhouse.io"
     url = f"https://{host}/v1/boards/{job.board.slug}/jobs/{job.external_id}"
     async with PoliteClient() as client:
@@ -163,7 +163,7 @@ async def _greenhouse_questions(job: Job) -> list[FormField]:
 async def job_fields(job: Job) -> list[FormField]:
     ats = job.board.ats
     if ats is Ats.greenhouse:
-        return await _greenhouse_questions(job)
+        return await greenhouse_questions(job)
     if ats not in READERS:
         raise UnsupportedForm(f"Reading {ats} application forms is not supported; apply manually.")
     async with async_playwright() as playwright:
