@@ -5,11 +5,11 @@ from sqlite3 import Connection
 import pytest
 
 from jobhunt import db
-from jobhunt.decisions import DecisionError, record_decision
+from jobhunt.decisions import DecisionError, record_decision, record_external_job
 from jobhunt.enums import AppState, Ats
 from jobhunt.location import classify
 from jobhunt.models import Board, Job
-from jobhunt.queries import JobNotFound
+from jobhunt.queries import JobNotFound, get_job, list_applications, search_jobs
 
 NOW = datetime(2026, 11, 23, 8, 0, tzinfo=UTC)
 BOARD = Board(company="Acme", ats=Ats.greenhouse, slug="acme")
@@ -119,3 +119,51 @@ def test_job_without_state_is_treated_as_found(conn: Connection) -> None:
     job = make_job("x")
     db.upsert_job(conn, job, NOW)
     assert record_decision(conn, job.id, "shortlist", score=60).state == "manual"
+
+
+def save_everai(conn: Connection, **overrides: str) -> str:
+    fields = {
+        "source": "levels.fyi",
+        "external_id": "lv-123",
+        "company": "EverAI",
+        "title": "LLM Engineer",
+        "url": "https://www.levels.fyi/jobs?jobId=lv-123",
+        "location": "Remote - Europe",
+        "description": "Fine-tune open-weight LLMs.",
+    } | overrides
+    return record_external_job(conn, **fields).id
+
+
+def test_record_external_job_is_tracked(conn: Connection) -> None:
+    job_id = save_everai(conn)
+
+    assert job_id == "external:levels.fyi:lv-123"
+    detail = get_job(conn, job_id)
+    assert (detail.company, detail.title, detail.state) == ("EverAI", "LLM Engineer", "found")
+    assert detail.location_class == "remote-europe"
+    assert detail.description == "Fine-tune open-weight LLMs."
+    assert job_id in [j.id for j in search_jobs(conn, new_only=True, now=NOW)]
+
+    record_decision(conn, job_id, "applied")
+    rows = list_applications(conn, company="EverAI", since_days=60)
+    assert [(r.job.id, r.state) for r in rows] == [(job_id, "applied_manually")]
+
+
+def test_record_external_job_twice_is_idempotent(conn: Connection) -> None:
+    job_id = save_everai(conn)
+    record_decision(conn, job_id, "shortlist", score=80)
+    before = events(conn, job_id)
+
+    again = save_everai(conn, title="Changed title")
+
+    assert again == job_id
+    assert get_job(conn, job_id).title == "LLM Engineer"
+    assert db.get_state(conn, job_id) == AppState.manual
+    assert events(conn, job_id) == before
+
+
+def test_external_jobs_keep_their_own_company(conn: Connection) -> None:
+    first = save_everai(conn)
+    second = save_everai(conn, external_id="lv-456", company="Kraken")
+    assert get_job(conn, first).company == "EverAI"
+    assert get_job(conn, second).company == "Kraken"

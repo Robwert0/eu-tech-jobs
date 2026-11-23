@@ -30,7 +30,7 @@ async def crawl(
     now: datetime,
     adapters: Mapping[Ats, AtsAdapter] = ADAPTERS,
 ) -> CrawlReport:
-    boards = db.list_boards(conn)
+    boards = [b for b in db.list_boards(conn) if b.ats in adapters]
     semaphore = asyncio.Semaphore(MAX_CONCURRENT_BOARDS)
 
     async def fetch(board: Board) -> list[Job] | Exception:

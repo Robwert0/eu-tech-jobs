@@ -1,10 +1,13 @@
 import sqlite3
+from datetime import UTC, datetime
 from typing import Literal
 
-from jobhunt.db import get_state, set_state
-from jobhunt.enums import AppState
-from jobhunt.models import JobSummary
-from jobhunt.queries import get_job
+from jobhunt.db import get_state, set_state, upsert_board, upsert_job
+from jobhunt.enums import AppState, Ats
+from jobhunt.location import classify
+from jobhunt.models import Board, Job, JobSummary
+from jobhunt.queries import JobNotFound, get_job
+from jobhunt.seed.discover import slug_candidates
 
 Decision = Literal["shortlist", "skip", "applied", "dismiss"]
 DECISION_STATE: dict[str, AppState] = {
@@ -37,4 +40,39 @@ def record_decision(
     if get_state(conn, job_id) is None:
         set_state(conn, job_id, AppState.found)
     set_state(conn, job_id, DECISION_STATE[decision], reason, score)
+    return get_job(conn, job_id)
+
+
+def record_external_job(
+    conn: sqlite3.Connection,
+    *,
+    source: str,
+    external_id: str,
+    company: str,
+    title: str,
+    url: str,
+    location: str,
+    description: str = "",
+    posted_at: datetime | None = None,
+) -> JobSummary:
+    job_id = f"{Ats.external}:{source}:{external_id}"
+    try:
+        return get_job(conn, job_id)
+    except JobNotFound:
+        pass
+    board = Board(company=company, ats=Ats.external, slug=f"{source}/{slug_candidates(company)[0]}")
+    upsert_board(conn, board)
+    job = Job(
+        id=job_id,
+        board=board,
+        external_id=external_id,
+        title=title,
+        url=url,
+        apply_url=url,
+        offices=[classify(location)],
+        description=description,
+        posted_at=posted_at,
+    )
+    upsert_job(conn, job, datetime.now(UTC))
+    set_state(conn, job_id, AppState.found)
     return get_job(conn, job_id)

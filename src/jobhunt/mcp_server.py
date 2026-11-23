@@ -1,9 +1,12 @@
+from datetime import datetime
+
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
 from jobhunt import db
 from jobhunt.decisions import Decision, DecisionError
 from jobhunt.decisions import record_decision as save_decision
+from jobhunt.decisions import record_external_job as save_external_job
 from jobhunt.models import ApplicationRow, JobDetail, JobSummary, Profile
 from jobhunt.profile import load_profile, profile_dir
 from jobhunt.queries import JobNotFound, list_applications, search_jobs
@@ -133,5 +136,41 @@ def my_applications(
     conn = db.connect(db.db_path())
     try:
         return list_applications(conn, state=state, company=company, since_days=since_days)
+    finally:
+        conn.close()
+
+
+@mcp.tool(
+    description=(
+        "Save a job found outside the crawler, e.g. a Levels.fyi search-jobs result, so it is "
+        "tracked like a crawled job: record_decision then works on it and it appears in "
+        "my_applications and the 60-day same-company check. Use source='levels.fyi' and the "
+        "posting's own id as external_id. Saving the same job twice changes nothing. Returns "
+        "the stored job (state found)."
+    )
+)
+def record_external_job(
+    source: str,
+    external_id: str,
+    company: str,
+    title: str,
+    url: str,
+    location: str,
+    description: str = "",
+    posted_at: datetime | None = None,
+) -> JobSummary:
+    conn = db.connect(db.db_path())
+    try:
+        return save_external_job(
+            conn,
+            source=source,
+            external_id=external_id,
+            company=company,
+            title=title,
+            url=url,
+            location=location,
+            description=description,
+            posted_at=posted_at,
+        )
     finally:
         conn.close()

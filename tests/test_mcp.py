@@ -437,3 +437,40 @@ async def test_mcp_my_applications_reads_jobhunt_db(
     assert [(r["job"]["id"], r["state"]) for r in rows] == [
         ("greenhouse:acme:a", "applied_manually")
     ]
+
+
+async def test_mcp_lists_record_external_job_tool() -> None:
+    tools = {t.name: t for t in await mcp.list_tools()}
+    assert "record_external_job" in tools
+    tool = tools["record_external_job"]
+    assert set(tool.input_schema["properties"]) == {
+        "source",
+        "external_id",
+        "company",
+        "title",
+        "url",
+        "location",
+        "description",
+        "posted_at",
+    }
+    assert "Levels.fyi" in (tool.description or "")
+
+
+async def test_mcp_record_external_job_saves_it(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("JOBHUNT_DB", str(tmp_path / "live.db"))
+    result = await mcp.call_tool(
+        "record_external_job",
+        {
+            "source": "levels.fyi",
+            "external_id": "lv-1",
+            "company": "EverAI",
+            "title": "Security Engineer",
+            "url": "https://www.levels.fyi/jobs?jobId=lv-1",
+            "location": "Remote - Europe",
+        },
+    )
+    assert not result.is_error
+    assert result.structured_content["id"] == "external:levels.fyi:lv-1"
+    assert result.structured_content["state"] == "found"
