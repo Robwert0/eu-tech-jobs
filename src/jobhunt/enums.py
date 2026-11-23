@@ -6,6 +6,7 @@ class Ats(StrEnum):
     lever = "lever"
     ashby = "ashby"
     softgarden = "softgarden"
+    external = "external"
     other = "other"
 
 

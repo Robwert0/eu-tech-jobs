@@ -380,6 +380,7 @@ source = { editable = "." }
 dependencies = [
     { name = "anthropic" },
     { name = "httpx" },
+    { name = "markdown" },
     { name = "mcp" },
     { name = "playwright" },
     { name = "pydantic" },
@@ -394,6 +395,7 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "respx" },
     { name = "ruff" },
+    { name = "types-markdown" },
     { name = "types-pyyaml" },
 ]
 
@@ -401,6 +403,7 @@ dev = [
 requires-dist = [
     { name = "anthropic", specifier = ">=2.12.0" },
     { name = "httpx", specifier = ">=0.28.1" },
+    { name = "markdown", specifier = ">=3.11.3" },
     { name = "mcp", specifier = ">=2.3.0" },
     { name = "playwright", specifier = ">=1.65.2" },
     { name = "pydantic", specifier = ">=2.14.4" },
@@ -415,6 +418,7 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=1.5.0" },
     { name = "respx", specifier = ">=0.23.1" },
     { name = "ruff", specifier = ">=0.17.6" },
+    { name = "types-markdown", specifier = ">=3.11.3.20261122" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20261122" },
 ]
 
@@ -485,6 +489,15 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/5c/80/03b4173a8022c2182f03fc2d89daa6e27e63de1ab86c9d972b74e2bf2196/librt-0.17.0-cp315-cp315t-win32.whl", hash = "sha256:d7ba54178e46264de221455ca84e26680debc5ccdb3d11cf8fc64b83e0a91854", size = 114883, upload-time = "2026-11-19T14:10:46.091Z" },
     { url = "https://files.pythonhosted.org/packages/c4/d7/f563218dc47a38f06e3504ae7f67cab188d484848cec50a363a527050a17/librt-0.17.0-cp315-cp315t-win_amd64.whl", hash = "sha256:9c67ede964192c970426aa09d6a7ccfb6a5e41b75462309d93547c6a11e15b10", size = 140448, upload-time = "2026-11-19T14:10:47.136Z" },
     { url = "https://files.pythonhosted.org/packages/7b/75/c3d79629d6894242ffbb70b34d48006f6a5c25127958748aba71d19ce6fa/librt-0.17.0-cp315-cp315t-win_arm64.whl", hash = "sha256:bdc73adb6376765fa8955ba936ed297277c814395eac82e862c621ff3b354602", size = 128548, upload-time = "2026-11-19T14:10:48.224Z" },
+]
+
+[[package]]
+name = "markdown"
+version = "3.11.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ca/eb/dc0fd6eff604bfb870b7fb68b90985a32caaf3c76f67736bbf7f438acd59/markdown-3.11.3.tar.gz", hash = "sha256:81eb91631dc97ad1efbc76019ef0f80fe90ca49ddf81546752d79989c3bfff3e", size = 498810, upload-time = "2026-11-05T20:30:52.926Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/81/6f/1fa8970e960e5c832874399e6efa564870ade8206d57fef5d5e296b834f5/markdown-3.11.3-py3-none-any.whl", hash = "sha256:e1a31a112232504d753e5c01bb8c2de90d3f0ba986b063e10770cf7695b09e73", size = 116758, upload-time = "2026-11-05T20:30:51.775Z" },
 ]
 
 [[package]]
@@ -919,6 +932,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ee/9f/c5201d42a484c061e528825fc8e2d565f5abd50a4ced6fb7d29c4ec99b2b/truststore-0.10.5.tar.gz", hash = "sha256:30d36967ccaded5cbb38d602c433f53600036c79d502f4533a49b60a03bbefcd", size = 28091, upload-time = "2026-10-12T22:27:31.808Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/51/e9/3a7820be2bb0fe53b6bc9c3be26d3d1158004e4c3ab953aa6840b955b1e9/truststore-0.10.5-py3-none-any.whl", hash = "sha256:9aaaedaefaf06d8b206278cf8b5012bc897f485a874503501e12d776df78951c", size = 19017, upload-time = "2026-10-12T22:27:30.377Z" },
+]
+
+[[package]]
+name = "types-markdown"
+version = "3.11.3.20261122"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/89/16/b6f9253b1f0332114e14ebf00cd3a73d292e975696ecadedee87d28ce313/types_markdown-3.11.3.20261122.tar.gz", hash = "sha256:919fbb843bcdd0e1f48cf878c5e712aafc747925f4692e3845b5bd146d975b59", size = 21090, upload-time = "2026-11-22T08:59:03.016Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f2/0e/a13d5e01c4720a5f5326c6cc1c65e4c7205a6c86da77c3fee35f37aadf5c/types_markdown-3.11.3.20261122-py3-none-any.whl", hash = "sha256:2fc85f31e525ba43e50bf860b4ec25de2fb291b7f60260f28f209d34353716c8", size = 26486, upload-time = "2026-11-22T08:59:02.258Z" },
 ]
 
 [[package]]

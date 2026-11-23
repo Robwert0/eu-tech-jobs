@@ -64,7 +64,7 @@ ALLOWED: dict[AppState | None, frozenset[AppState]] = {
     ),
     S.queued: frozenset({S.dry_run, S.manual, S.submitted, S.submit_unconfirmed, S.skipped}),
     S.dry_run: frozenset({S.submitted, S.submit_unconfirmed, S.manual}),
-    S.manual: frozenset({S.applied_manually, S.dismissed}),
+    S.manual: frozenset({S.applied_manually, S.dismissed, S.queued}),
     S.submit_unconfirmed: frozenset({S.submitted, S.applied_manually, S.dismissed}),
     S.skipped: frozenset({S.manual}),
 }

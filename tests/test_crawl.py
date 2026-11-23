@@ -192,3 +192,20 @@ async def test_remote_country_jobs_kept_unless_other_language(
     german.description = "Fluent German is required."
     report = await run(conn, client, {"a": [english, german]}, T1)
     assert report.new_jobs == ["greenhouse:a:1"]
+
+
+async def test_crawl_skips_boards_without_an_adapter(
+    conn: Connection, client: PoliteClient
+) -> None:
+    add_boards(conn, "a")
+    external = Board(company="EverAI", ats=Ats.external, slug="levels.fyi/everai")
+    db.upsert_board(conn, external)
+    saved = job("a", "x").model_copy(update={"id": "external:levels.fyi:x", "board": external})
+    db.upsert_job(conn, saved, T1)
+
+    report = await run(conn, client, {"a": [job("a", "1")]}, T2)
+
+    assert report.boards_failed == {}
+    assert report.boards_ok == 1
+    closed = conn.execute("SELECT closed_at FROM jobs WHERE id = ?", (saved.id,)).fetchone()
+    assert closed == (None,)
