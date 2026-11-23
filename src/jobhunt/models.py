@@ -77,3 +77,10 @@ class JobDetail(JobSummary):
     description: str
     reason: str | None
     closed: bool
+
+
+class ApplicationRow(BaseModel):
+    job: JobSummary
+    state: str
+    reason: str | None
+    updated_at: datetime

@@ -2,8 +2,8 @@ import sqlite3
 from datetime import UTC, datetime, timedelta
 
 from jobhunt import filters
-from jobhunt.enums import KEPT_CLASSES, LocationClass
-from jobhunt.models import Job, JobDetail, JobSummary
+from jobhunt.enums import KEPT_CLASSES, AppState, LocationClass
+from jobhunt.models import ApplicationRow, Job, JobDetail, JobSummary
 
 BEST_FIRST = [
     LocationClass.romania,
@@ -28,6 +28,7 @@ def search_jobs(
     posted_since_days: int | None = None,
     min_score: int | None = None,
     contractor_ok: bool | None = None,
+    new_only: bool = False,
     limit: int = 20,
     now: datetime | None = None,
 ) -> list[JobSummary]:
@@ -40,6 +41,8 @@ def search_jobs(
 
     matches: list[tuple[Job, str | None, int | None]] = []
     for job_json, state, score in rows:
+        if new_only and state not in (None, AppState.found):
+            continue
         job = Job.model_validate_json(job_json)
         if query and not _mentions(job, query):
             continue
@@ -95,6 +98,43 @@ def _best_first(match: tuple[Job, str | None, int | None]) -> tuple[bool, int, b
     job, _, score = match
     posted = job.posted_at.timestamp() if job.posted_at else 0.0
     return (score is None, -(score or 0), job.posted_at is None, -posted)
+
+
+def list_applications(
+    conn: sqlite3.Connection,
+    *,
+    state: list[str] | None = None,
+    company: str | None = None,
+    since_days: int | None = None,
+    now: datetime | None = None,
+) -> list[ApplicationRow]:
+    now = now or datetime.now(UTC)
+    rows = conn.execute(
+        """SELECT j.json, a.state, a.reason, a.score, a.updated_at
+           FROM applications a JOIN jobs j ON j.id = a.job_id
+           ORDER BY a.updated_at DESC"""
+    )
+    found: list[ApplicationRow] = []
+    for job_json, row_state, reason, score, updated in rows:
+        if state is None and row_state == AppState.found:
+            continue
+        if state is not None and row_state not in state:
+            continue
+        updated_at = datetime.fromisoformat(updated)
+        if since_days is not None and updated_at < now - timedelta(days=since_days):
+            continue
+        job = Job.model_validate_json(job_json)
+        if company is not None and job.board.company.lower() != company.lower():
+            continue
+        found.append(
+            ApplicationRow(
+                job=_summary(job, row_state, score),
+                state=row_state,
+                reason=reason,
+                updated_at=updated_at,
+            )
+        )
+    return found
 
 
 def _summary(job: Job, state: str | None, score: int | None) -> JobSummary:

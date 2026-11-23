@@ -11,7 +11,7 @@ from jobhunt.enums import AppState, Ats
 from jobhunt.location import classify
 from jobhunt.mcp_server import mcp
 from jobhunt.models import Board, Job
-from jobhunt.queries import JobDetail, JobNotFound, get_job, search_jobs
+from jobhunt.queries import JobDetail, JobNotFound, get_job, list_applications, search_jobs
 
 NOW = datetime(2026, 11, 22, 8, 0, tzinfo=UTC)
 BOARD = Board(company="Acme", ats=Ats.greenhouse, slug="acme")
@@ -136,6 +136,7 @@ async def test_mcp_lists_find_jobs_tool() -> None:
         "posted_since_days",
         "min_score",
         "contractor_ok",
+        "new_only",
         "limit",
     }
 
@@ -324,3 +325,115 @@ async def test_mcp_record_decision_forbidden_move_is_a_clear_error(
         await mcp.call_tool(
             "record_decision", {"job_id": "greenhouse:acme:a", "decision": "applied"}
         )
+
+
+def decided(
+    conn: Connection, external_id: str, state: AppState, updated: datetime, **kw: str
+) -> str:
+    job = make_job(external_id, **kw)
+    store(conn, job)
+    if state != AppState.found:
+        db.set_state(conn, job.id, state, reason=f"{state} reason")
+    conn.execute(
+        "UPDATE applications SET updated_at = ? WHERE job_id = ?", (updated.isoformat(), job.id)
+    )
+    conn.commit()
+    return job.id
+
+
+def test_new_only_returns_only_unreviewed(conn: Connection) -> None:
+    store(conn, make_job("new"))
+    db.upsert_job(conn, make_job("stateless"), NOW)
+    shortlisted = make_job("short")
+    store(conn, shortlisted)
+    db.set_state(conn, shortlisted.id, AppState.manual, reason="shortlisted")
+    skipped = make_job("skip")
+    store(conn, skipped)
+    db.set_state(conn, skipped.id, AppState.skipped, reason="low_fit")
+
+    assert sorted(ids(search_jobs(conn, new_only=True, now=NOW))) == [
+        "greenhouse:acme:new",
+        "greenhouse:acme:stateless",
+    ]
+
+
+def test_new_only_excludes_closed(conn: Connection) -> None:
+    store(conn, make_job("open"))
+    store(conn, make_job("gone"), closed=True)
+    assert ids(search_jobs(conn, new_only=True, now=NOW)) == ["greenhouse:acme:open"]
+
+
+def test_list_applications_newest_first_and_hides_unreviewed(conn: Connection) -> None:
+    decided(conn, "old", AppState.applied_manually, NOW - timedelta(days=10))
+    decided(conn, "recent", AppState.manual, NOW - timedelta(days=1))
+    decided(conn, "unreviewed", AppState.found, NOW)
+
+    rows = list_applications(conn, now=NOW)
+
+    assert [r.job.id for r in rows] == ["greenhouse:acme:recent", "greenhouse:acme:old"]
+    assert rows[0].state == "manual"
+    assert rows[0].reason == "manual reason"
+    assert rows[0].updated_at == NOW - timedelta(days=1)
+
+
+def test_list_applications_by_state_and_company(conn: Connection) -> None:
+    other = Board(company="Other Corp", ats=Ats.greenhouse, slug="other")
+    db.upsert_board(conn, other)
+    decided(conn, "a", AppState.applied_manually, NOW)
+    decided(conn, "b", AppState.dismissed, NOW)
+    job = make_job("c").model_copy(update={"id": "greenhouse:other:c", "board": other})
+    store(conn, job)
+    db.set_state(conn, job.id, AppState.applied_manually)
+
+    applied = list_applications(conn, state=["applied_manually"], now=NOW)
+    assert sorted(r.job.id for r in applied) == ["greenhouse:acme:a", "greenhouse:other:c"]
+    at_acme = list_applications(conn, company="acme", now=NOW)
+    assert sorted(r.job.id for r in at_acme) == ["greenhouse:acme:a", "greenhouse:acme:b"]
+
+
+def test_list_applications_since_days(conn: Connection) -> None:
+    decided(conn, "recent", AppState.applied_manually, NOW - timedelta(days=45))
+    decided(conn, "old", AppState.applied_manually, NOW - timedelta(days=75))
+    rows = list_applications(conn, since_days=60, now=NOW)
+    assert [r.job.id for r in rows] == ["greenhouse:acme:recent"]
+
+
+def test_list_applications_includes_closed_jobs(conn: Connection) -> None:
+    job_id = decided(conn, "gone", AppState.applied_manually, NOW)
+    conn.execute("UPDATE jobs SET closed_at = ? WHERE id = ?", (NOW.isoformat(), job_id))
+    conn.commit()
+    assert [r.job.id for r in list_applications(conn, now=NOW)] == [job_id]
+
+
+def test_list_applications_can_ask_for_unreviewed(conn: Connection) -> None:
+    decided(conn, "unreviewed", AppState.found, NOW)
+    rows = list_applications(conn, state=["found"], now=NOW)
+    assert [r.job.id for r in rows] == ["greenhouse:acme:unreviewed"]
+
+
+async def test_mcp_lists_my_applications_tool() -> None:
+    tools = {t.name: t for t in await mcp.list_tools()}
+    assert "my_applications" in tools
+    tool = tools["my_applications"]
+    assert set(tool.input_schema["properties"]) == {"state", "company", "since_days"}
+    assert "60" in (tool.description or "")
+
+
+async def test_mcp_my_applications_reads_jobhunt_db(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "live.db"
+    c = db.connect(path)
+    db.upsert_board(c, BOARD)
+    store(c, make_job("a"))
+    db.set_state(c, "greenhouse:acme:a", AppState.applied_manually)
+    c.close()
+    monkeypatch.setenv("JOBHUNT_DB", str(path))
+
+    result = await mcp.call_tool("my_applications", {"company": "Acme"})
+
+    assert not result.is_error
+    rows = result.structured_content["result"]
+    assert [(r["job"]["id"], r["state"]) for r in rows] == [
+        ("greenhouse:acme:a", "applied_manually")
+    ]

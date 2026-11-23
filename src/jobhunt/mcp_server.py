@@ -4,9 +4,9 @@ from mcp.server.mcpserver.exceptions import ToolError
 from jobhunt import db
 from jobhunt.decisions import Decision, DecisionError
 from jobhunt.decisions import record_decision as save_decision
-from jobhunt.models import JobDetail, JobSummary, Profile
+from jobhunt.models import ApplicationRow, JobDetail, JobSummary, Profile
 from jobhunt.profile import load_profile, profile_dir
-from jobhunt.queries import JobNotFound, search_jobs
+from jobhunt.queries import JobNotFound, list_applications, search_jobs
 from jobhunt.queries import get_job as fetch_job
 
 mcp = MCPServer("jobhunt")
@@ -20,6 +20,7 @@ def find_jobs(
     posted_since_days: int | None = None,
     min_score: int | None = None,
     contractor_ok: bool | None = None,
+    new_only: bool = False,
     limit: int = 20,
 ) -> list[JobSummary]:
     """Search open tech jobs that can be done from Romania.
@@ -43,6 +44,8 @@ def find_jobs(
         min_score: only jobs whose fit score (0-100) is at least this.
         contractor_ok: true = only jobs mentioning contractors / B2B / freelance / Employer of
             Record; false = only jobs that don't.
+        new_only: true = only jobs never reviewed yet (no decision recorded); use this at the
+            start of a review session.
         limit: maximum number of jobs to return.
     """
     conn = db.connect(db.db_path())
@@ -55,6 +58,7 @@ def find_jobs(
             posted_since_days=posted_since_days,
             min_score=min_score,
             contractor_ok=contractor_ok,
+            new_only=new_only,
             limit=limit,
         )
     finally:
@@ -108,5 +112,26 @@ def record_decision(
         )
     except (JobNotFound, db.InvalidTransition, DecisionError) as e:
         raise ToolError(str(e)) from e
+    finally:
+        conn.close()
+
+
+@mcp.tool(
+    description=(
+        "Robert's application history, newest first: every job with a recorded decision "
+        "(manual = shortlisted, applied_manually, skipped, dismissed), with the reason and when "
+        "it was decided. Before shortlisting a job, call this with company=<that company> and "
+        "since_days=60: if Robert applied there in the last 60 days, say so. state filters by "
+        "state names; state=['found'] lists jobs never reviewed."
+    )
+)
+def my_applications(
+    state: list[str] | None = None,
+    company: str | None = None,
+    since_days: int | None = None,
+) -> list[ApplicationRow]:
+    conn = db.connect(db.db_path())
+    try:
+        return list_applications(conn, state=state, company=company, since_days=since_days)
     finally:
         conn.close()
