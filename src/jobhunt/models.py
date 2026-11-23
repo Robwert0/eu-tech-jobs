@@ -56,3 +56,24 @@ class Fact(BaseModel):
 class Profile(BaseModel):
     facts: list[Fact]
     answers: dict[str, str]
+
+
+class JobSummary(BaseModel):
+    id: str
+    title: str
+    company: str
+    offices: list[str]
+    location_class: str
+    url: str
+    apply_url: str
+    posted_at: datetime | None
+    score: int | None
+    state: str | None
+    visa_sponsorship: bool | None
+    contractor_ok: bool
+
+
+class JobDetail(JobSummary):
+    description: str
+    reason: str | None
+    closed: bool

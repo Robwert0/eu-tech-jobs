@@ -1,11 +1,9 @@
 import sqlite3
 from datetime import UTC, datetime, timedelta
 
-from pydantic import BaseModel
-
 from jobhunt import filters
 from jobhunt.enums import KEPT_CLASSES, LocationClass
-from jobhunt.models import Job
+from jobhunt.models import Job, JobDetail, JobSummary
 
 BEST_FIRST = [
     LocationClass.romania,
@@ -17,19 +15,8 @@ BEST_FIRST = [
 ]
 
 
-class JobSummary(BaseModel):
-    id: str
-    title: str
-    company: str
-    offices: list[str]
-    location_class: str
-    url: str
-    apply_url: str
-    posted_at: datetime | None
-    score: int | None
-    state: str | None
-    visa_sponsorship: bool | None
-    contractor_ok: bool
+class JobNotFound(Exception):
+    pass
 
 
 def search_jobs(
@@ -72,6 +59,27 @@ def search_jobs(
 
     matches.sort(key=_best_first)
     return [_summary(job, state, score) for job, state, score in matches[:limit]]
+
+
+def get_job(conn: sqlite3.Connection, job_id: str) -> JobDetail:
+    row = conn.execute(
+        """SELECT j.json, a.state, a.reason, a.score, j.closed_at
+        FROM jobs j LEFT JOIN applications a ON a.job_id = j.id
+        WHERE j.id = ?""",
+        (job_id,),
+    ).fetchone()
+    if row is None:
+        raise JobNotFound(f"{job_id} was not found.")
+
+    job_json, state, reason, score, closed_at = row
+    job = Job.model_validate_json(job_json)
+    summary = _summary(job, state, score)
+    return JobDetail(
+        **summary.model_dump(),
+        description=job.description,
+        reason=reason,
+        closed=closed_at is not None,
+    )
 
 
 def _text(job: Job) -> str:
