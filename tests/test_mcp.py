@@ -524,6 +524,31 @@ async def test_review_jobs_prompt_carries_the_rules() -> None:
     assert "round(100" in text
 
 
+async def test_review_jobs_prompt_grades_strictly() -> None:
+    text = (await review_text()).lower()
+    for rule in (
+        "a related skill is not partial",
+        "or equivalent",
+        "most of them",
+        "knockout",
+        "min(score, 40)",
+        "years are not scored",
+        "fit",
+        "stretch",
+        "long shot",
+        "requirement table",
+    ):
+        assert rule in text, rule
+
+
+async def test_review_jobs_prompt_offers_quick_wins_without_claiming_them() -> None:
+    text = (await review_text()).lower()
+    assert "quick wins" in text
+    assert "1-3 day project" in text
+    assert "facts.yaml" in text
+    assert "never claim a quick win" in text
+
+
 async def test_review_jobs_prompt_uses_its_arguments() -> None:
     text = await review_text(days="7", limit="5")
     assert "posted_since_days=7" in text
