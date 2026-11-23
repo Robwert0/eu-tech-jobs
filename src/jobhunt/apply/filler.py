@@ -17,6 +17,11 @@ CAPTCHA = (
 CHALLENGE = re.compile(r"verify (that )?you are (a )?human|are you a robot", re.I)
 CONFIRMATION = re.compile(r"thank you|application (has been )?(received|submitted)", re.I)
 SUBMIT = re.compile(r"submit", re.I)
+SUGGESTIONS = "[role=option]:visible, .dropdown-location:visible"
+
+
+class FillError(Exception):
+    pass
 
 
 def _choices(answer: str) -> list[str]:
@@ -84,34 +89,101 @@ def _input(page: Page, name: str) -> Locator:
     ).first
 
 
-async def _choose(page: Page, name: str, choice: str) -> None:
+async def _choose(page: Page, name: str, choice: str, timeout: float) -> None:
     option = page.locator(f"input[name={_css(name)}][value={_css(choice)}]")
     if await option.count():
-        await option.first.check()
+        await option.first.check(timeout=timeout)
         return
     container = page.locator(f"[data-field-path={_css(name)}]")
     label = container.get_by_label(choice, exact=True)
     if await label.count():
-        await label.first.check()
+        await label.first.check(timeout=timeout)
         return
-    await container.get_by_role("button", name=choice, exact=True).first.click()
+    await container.get_by_role("button", name=choice, exact=True).first.click(timeout=timeout)
 
 
-async def _fill(page: Page, field: FormField, answer: str) -> None:
+def _normal(text: str) -> str:
+    return " ".join(text.split()).casefold()
+
+
+def _best_option(texts: list[str], answer: str) -> int | None:
+    wanted = _normal(answer)
+    normal = [_normal(text) for text in texts]
+    if wanted in normal:
+        return normal.index(wanted)
+    parts = [_normal(part) for part in answer.split(",") if part.strip()]
+    for wanted_parts in (parts, parts[:1]):
+        for index, text in enumerate(normal):
+            if all(part in text for part in wanted_parts):
+                return index
+    return None
+
+
+async def _pick(page: Page, target: Locator, answer: str, timeout: float) -> None:
+    await target.fill("", timeout=timeout)
+    await target.press_sequentially(answer, delay=20, timeout=timeout)
+    options = page.locator(SUGGESTIONS)
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + 3 * timeout / 1000
+    while loop.time() < deadline:
+        index = _best_option(await options.all_inner_texts(), answer)
+        if index is not None:
+            await options.nth(index).click(timeout=timeout)
+            return
+        await asyncio.sleep(0.2)
+    await target.fill("", timeout=timeout)
+    await target.press("Escape", timeout=timeout)
+    raise FillError(f"no option matches {answer!r}")
+
+
+async def _fill(page: Page, field: FormField, answer: str, timeout: float) -> None:
     if field.type == "file":
-        await _input(page, field.name).set_input_files(answer)
+        await _input(page, field.name).set_input_files(answer, timeout=timeout)
     elif field.type in ("radio", "checkbox"):
         for choice in _choices(answer):
-            await _choose(page, field.name, choice)
+            await _choose(page, field.name, choice, timeout)
     elif field.type == "select":
         target = _input(page, field.name)
-        if await target.evaluate("e => e.tagName") == "SELECT":
-            await target.select_option(label=answer)
+        if await target.evaluate("e => e.tagName", timeout=timeout) == "SELECT":
+            await target.select_option(label=answer, timeout=timeout)
         else:
-            await target.fill(answer)
-            await target.press("Enter")
+            await _pick(page, target, answer, timeout)
     else:
-        await _input(page, field.name).fill(answer)
+        await _input(page, field.name).fill(answer, timeout=timeout)
+
+
+async def _settle(page: Page, timeout: float) -> None:
+    try:
+        await page.wait_for_load_state("networkidle", timeout=timeout)
+    except PlaywrightError:
+        pass
+
+
+async def _fill_one(
+    page: Page, field: FormField, answer: str, timeout: float, skipped: list[str]
+) -> None:
+    try:
+        await _fill(page, field, answer, timeout)
+    except (PlaywrightError, FillError) as error:
+        if field.required:
+            reason = str(error).splitlines()[0]
+            raise FillError(f"Could not fill {field.label!r}: {reason}") from error
+        skipped.append(field.label)
+
+
+async def _fill_all(
+    page: Page, fields: list[FormField], answers: dict[str, str], timeout: float
+) -> list[str]:
+    skipped: list[str] = []
+    files = [field for field in fields if field.type == "file" and field.name in answers]
+    for field in files:
+        await _fill_one(page, field, answers[field.name], timeout, skipped)
+    if files:
+        await _settle(page, timeout)
+    for field in fields:
+        if field.type != "file" and field.name in answers:
+            await _fill_one(page, field, answers[field.name], timeout, skipped)
+    return skipped
 
 
 async def _body_text(page: Page) -> str:
@@ -156,18 +228,17 @@ async def fill_and_submit(
     submit: bool,
     evidence_dir: Path,
     confirm_timeout: float = 15.0,
+    field_timeout: float = 5000,
 ) -> SubmitResult:
     evidence_dir.mkdir(parents=True, exist_ok=True)
-    for field in fields:
-        if field.name in answers:
-            await _fill(page, field, answers[field.name])
+    skipped = await _fill_all(page, fields, answers, field_timeout)
 
     filled = evidence_dir / "filled.png"
     await page.screenshot(path=str(filled), full_page=True)
     if await _captcha(page):
-        return SubmitResult(confirmed=False, screenshot=filled, blocked="captcha")
+        return SubmitResult(confirmed=False, screenshot=filled, blocked="captcha", skipped=skipped)
     if not submit:
-        return SubmitResult(confirmed=False, screenshot=filled)
+        return SubmitResult(confirmed=False, screenshot=filled, skipped=skipped)
 
     start_url, before = page.url, await _body_text(page)
     button = page.get_by_role("button", name=SUBMIT).or_(page.locator("input[type=submit]"))
@@ -175,4 +246,9 @@ async def fill_and_submit(
     text = await _confirmation(page, start_url, before, confirm_timeout)
     submitted = evidence_dir / "submitted.png"
     await page.screenshot(path=str(submitted), full_page=True)
-    return SubmitResult(confirmed=text is not None, screenshot=submitted, confirmation_text=text)
+    return SubmitResult(
+        confirmed=text is not None,
+        screenshot=submitted,
+        confirmation_text=text,
+        skipped=skipped,
+    )

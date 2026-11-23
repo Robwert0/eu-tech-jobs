@@ -86,6 +86,8 @@ async def test_reads_required_fields_lever(page: Page) -> None:
     assert fields["urls[LinkedIn]"].label == "LinkedIn URL"
     assert not fields["urls[LinkedIn]"].required
     assert "selectedLocation" not in fields
+    assert fields["location"].type == "select"
+    assert fields["location"].required
 
     authorised = fields["cards[1c719ca9-5069-4afe-9e82-39ca420e0edb][field0]"]
     assert authorised.type == "radio"
@@ -128,6 +130,48 @@ async def test_reads_required_fields_ashby(page: Page) -> None:
     assert timezone.required
 
     assert fields["7d3da580-9e6d-494f-a63b-0a889e0a157a"].type == "textarea"
+
+
+async def test_reads_ashby_groups_and_autocomplete(page: Page) -> None:
+    await page.set_content((FORMS / "ashby_widgets.html").read_text())
+
+    fields = by_name(await read_form(page, Ats.ashby))
+
+    assert fields["english-q"] == FormField(
+        name="english-q",
+        label="What is your English proficiency?",
+        type="radio",
+        required=True,
+        options=["Native/Bilingual", "C2 - Proficient/Fluent"],
+    )
+    assert fields["tools-q"].type == "checkbox"
+    assert fields["tools-q"].options == ["Code review", "MDM tools"]
+    assert not fields["tools-q"].required
+    assert fields["country-q"].type == "select"
+    assert fields["country-q"].required
+    assert fields["work-q"].options == ["Yes", "No"]
+
+
+async def test_lever_skips_questions_that_are_not_shown(page: Page) -> None:
+    await page.set_content(
+        """
+        <ul><li class="application-question"><label>
+          <div class="application-label">Full name<span class="required">✱</span></div>
+          <input type="text" name="name" required>
+        </label></li></ul>
+        <div class="section hidden" style="display: none"><ul>
+          <li class="application-question">
+            <div class="application-label"><div class="text">Gender?</div></div>
+            <ul><li><label><input type="radio" name="surveysResponses[s1][responses][field0]"
+              value="Woman">Woman</label></li></ul>
+          </li>
+        </ul></div>
+        """
+    )
+
+    fields = await read_form(page, Ats.lever)
+
+    assert [f.name for f in fields] == ["name"]
 
 
 @pytest.mark.parametrize(
