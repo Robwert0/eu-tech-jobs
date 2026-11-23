@@ -7,7 +7,8 @@ from jobhunt import db
 from jobhunt.decisions import Decision, DecisionError
 from jobhunt.decisions import record_decision as save_decision
 from jobhunt.decisions import record_external_job as save_external_job
-from jobhunt.models import ApplicationRow, JobDetail, JobSummary, Profile
+from jobhunt.documents import save_documents as write_documents
+from jobhunt.models import ApplicationRow, Documents, JobDetail, JobSummary, Profile
 from jobhunt.profile import load_profile, profile_dir
 from jobhunt.queries import JobNotFound, list_applications, search_jobs
 from jobhunt.queries import get_job as fetch_job
@@ -99,7 +100,8 @@ def get_job(job_id: str) -> JobDetail:
         "Record Robert's decision on a job: shortlist (worth applying), skip (not a fit; "
         "reason required, e.g. low_fit, language, location), applied, or dismiss. Include "
         "the fit score (0-100) when you scored the job. Record applied only after Robert "
-        "confirms the application was submitted."
+        "confirms the application was submitted. auto_apply queues the job for the "
+        "autopilot lane: only when Robert explicitly asks, and only after save_documents."
     )
 )
 def record_decision(
@@ -234,3 +236,27 @@ You are helping Robert review new job postings. Work through these steps in orde
 )
 def review_jobs(days: int = 3, limit: int = 10) -> str:
     return REVIEW_JOBS.format(days=days, limit=limit)
+
+
+@mcp.tool(
+    description=(
+        "Save the CV and cover letter you tailored for a job (Markdown), plus answers to the "
+        "application form's own questions, as files under data/applications/<job>/ with PDFs "
+        "ready to upload. Use only Robert's facts from get_profile. Saving again replaces the "
+        "previous version. Needed before record_decision(auto_apply)."
+    )
+)
+async def save_documents(
+    job_id: str,
+    cv_markdown: str,
+    cover_letter_markdown: str,
+    answers: dict[str, str] | None = None,
+) -> Documents:
+    conn = db.connect(db.db_path())
+    try:
+        fetch_job(conn=conn, job_id=job_id)
+    except JobNotFound as e:
+        raise ToolError(str(e)) from e
+    finally:
+        conn.close()
+    return await write_documents(job_id, cv_markdown, cover_letter_markdown, answers)

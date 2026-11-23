@@ -526,3 +526,38 @@ async def test_review_jobs_prompt_uses_its_arguments() -> None:
     text = await review_text(days="7", limit="5")
     assert "posted_since_days=7" in text
     assert "limit=5" in text
+
+
+async def test_mcp_lists_save_documents_tool() -> None:
+    tools = {t.name: t for t in await mcp.list_tools()}
+    assert "save_documents" in tools
+    assert set(tools["save_documents"].input_schema["properties"]) == {
+        "job_id",
+        "cv_markdown",
+        "cover_letter_markdown",
+        "answers",
+    }
+
+
+async def test_mcp_save_documents_unknown_job_is_a_clear_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("JOBHUNT_DB", str(tmp_path / "empty.db"))
+    monkeypatch.setenv("JOBHUNT_APPLICATIONS", str(tmp_path / "applications"))
+    with pytest.raises(ToolError, match="greenhouse:acme:nope"):
+        await mcp.call_tool(
+            "save_documents",
+            {
+                "job_id": "greenhouse:acme:nope",
+                "cv_markdown": "# CV",
+                "cover_letter_markdown": "Hi",
+            },
+        )
+    assert not (tmp_path / "applications").exists()
+
+
+async def test_record_decision_offers_auto_apply() -> None:
+    tools = {t.name: t for t in await mcp.list_tools()}
+    tool = tools["record_decision"]
+    assert "auto_apply" in str(tool.input_schema["properties"]["decision"])
+    assert "auto_apply" in (tool.description or "")

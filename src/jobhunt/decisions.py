@@ -3,22 +3,28 @@ from datetime import UTC, datetime
 from typing import Literal
 
 from jobhunt.db import get_state, set_state, upsert_board, upsert_job
+from jobhunt.documents import load_documents
 from jobhunt.enums import AppState, Ats
 from jobhunt.location import classify
 from jobhunt.models import Board, Job, JobSummary
 from jobhunt.queries import JobNotFound, get_job
 from jobhunt.seed.discover import slug_candidates
 
-Decision = Literal["shortlist", "skip", "applied", "dismiss"]
+Decision = Literal["shortlist", "skip", "applied", "dismiss", "auto_apply"]
 DECISION_STATE: dict[str, AppState] = {
     "shortlist": AppState.manual,
     "skip": AppState.skipped,
     "applied": AppState.applied_manually,
     "dismiss": AppState.dismissed,
+    "auto_apply": AppState.queued,
 }
 
 
 class DecisionError(Exception):
+    pass
+
+
+class MissingDocuments(DecisionError):
     pass
 
 
@@ -37,6 +43,10 @@ def record_decision(
     if decision == "shortlist" and reason is None:
         reason = "shortlisted"
     get_job(conn, job_id)
+    if decision == "auto_apply" and load_documents(job_id) is None:
+        raise MissingDocuments(
+            f"{job_id} has no saved CV and cover letter; call save_documents first"
+        )
     if get_state(conn, job_id) is None:
         set_state(conn, job_id, AppState.found)
     set_state(conn, job_id, DECISION_STATE[decision], reason, score)

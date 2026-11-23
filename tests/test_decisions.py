@@ -5,7 +5,13 @@ from sqlite3 import Connection
 import pytest
 
 from jobhunt import db
-from jobhunt.decisions import DecisionError, record_decision, record_external_job
+from jobhunt.decisions import (
+    DecisionError,
+    MissingDocuments,
+    record_decision,
+    record_external_job,
+)
+from jobhunt.documents import save_documents
 from jobhunt.enums import AppState, Ats
 from jobhunt.location import classify
 from jobhunt.models import Board, Job
@@ -167,3 +173,31 @@ def test_external_jobs_keep_their_own_company(conn: Connection) -> None:
     second = save_everai(conn, external_id="lv-456", company="Kraken")
     assert get_job(conn, first).company == "EverAI"
     assert get_job(conn, second).company == "Kraken"
+
+
+@pytest.fixture
+def applications(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    root = tmp_path / "applications"
+    monkeypatch.setenv("JOBHUNT_APPLICATIONS", str(root))
+    return root
+
+
+def test_auto_apply_requires_documents(conn: Connection, applications: Path) -> None:
+    job_id = crawled(conn)
+    with pytest.raises(MissingDocuments, match=job_id):
+        record_decision(conn, job_id, "auto_apply", score=85)
+    assert db.get_state(conn, job_id) == AppState.found
+
+
+async def test_auto_apply_queues_job_with_documents(conn: Connection, applications: Path) -> None:
+    job_id = crawled(conn)
+    await save_documents(job_id, "# CV\n", "Letter\n")
+    summary = record_decision(conn, job_id, "auto_apply", score=85)
+    assert (summary.state, summary.score) == ("queued", 85)
+
+
+async def test_shortlisted_job_can_be_queued(conn: Connection, applications: Path) -> None:
+    job_id = crawled(conn)
+    record_decision(conn, job_id, "shortlist", score=85)
+    await save_documents(job_id, "# CV\n", "Letter\n")
+    assert record_decision(conn, job_id, "auto_apply").state == "queued"

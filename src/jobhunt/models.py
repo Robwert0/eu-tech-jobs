@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from pathlib import Path
 from typing import Literal
 
 from pydantic import BaseModel
@@ -84,3 +85,9 @@ class ApplicationRow(BaseModel):
     state: str
     reason: str | None
     updated_at: datetime
+
+
+class Documents(BaseModel):
+    cv_pdf: Path
+    cover_letter_pdf: Path
+    answers: dict[str, str]
